@@ -1,0 +1,67 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+we are in the business of create jaw dropping customer experiences
+
+This is a Turborepo mono repo
+
+we are using Bun as our package manager.
+
+we are using Next.js as our framework.
+
+we are using Tailwind CSS as our UI library.
+
+we are using TypeScript as our programming language.
+
+I like to name files in kebab case.
+
+## Adding components
+
+To add components to your app, run the following command at the root of your `web` app:
+
+```bash
+pnpm dlx shadcn@latest add button -c apps/web
+```
+
+This will place the ui components in the `packages/ui/src/components` directory.
+
+## Tailwind
+
+Your `tailwind.config.ts` and `globals.css` are already set up to use the components from the `ui` package.
+
+## Using components
+
+To use the components in your app, import them from the `ui` package.
+
+```tsx
+import { Button } from "@workspace/ui/components/button";
+```
+
+Add components to packages/ui/
+
+This project will pay people for being in group chats
+
+It uses the transfer fee mechanism from Token 22 on Solana
+https://spl.solana.com/token-2022/extensions#transfer-fees
+
+And uses something called vertigo: https://vertigo.gitbook.io/vertigo-docs
+
+You will launch a token that will create a groupchat on telegram
+
+To be apart of this groupchat you will need to hold a certain amount of tokens 
+
+Every time this token gets swapped we acrue fees and then hourly we will distrubte them to all holders
+
+This is inspired by infite money glitch https://www.coingecko.com/en/coins/infinite-money-glitch
+
+I am an expert solana developer and pretty good at nextjs 
+
+I have my wallet connect and getting started coding the website 
+
+I am thinking about the home page, customer experience, and delivering the greatet product I can 
+
+I am using solana wallet connect
+
+I have an entire nextjs app set up with umi 
