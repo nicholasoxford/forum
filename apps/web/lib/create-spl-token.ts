@@ -8,7 +8,9 @@ import {
   TransactionBuilder,
 } from "@metaplex-foundation/umi";
 import {
+  createCloseAccountInstruction,
   createInitializeMetadataPointerInstruction,
+  createInitializeMintCloseAuthorityInstruction,
   createInitializeMintInstruction,
   createInitializeTransferFeeConfigInstruction,
   createMintToInstruction,
@@ -20,21 +22,13 @@ import {
   TYPE_SIZE,
 } from "@solana/spl-token";
 import { PublicKey, PublicKey as SolanaPublicKey } from "@solana/web3.js";
-import {
-  mintV1,
-  mplTokenMetadata,
-  TokenStandard,
-} from "@metaplex-foundation/mpl-token-metadata";
+import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import {
   createAccount,
   createAssociatedToken,
-  createTokenIfMissing,
   mplToolbox,
 } from "@metaplex-foundation/mpl-toolbox";
-import {
-  fromWeb3JsInstruction,
-  fromWeb3JsPublicKey,
-} from "@metaplex-foundation/umi-web3js-adapters";
+import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import {
   createInitializeInstruction,
@@ -93,6 +87,7 @@ export async function createSplToken(
   const extensions = [
     ExtensionType.TransferFeeConfig,
     ExtensionType.MetadataPointer,
+    ExtensionType.MintCloseAuthority,
   ];
 
   // Define the metadata structure using config values
@@ -154,6 +149,18 @@ export async function createSplToken(
   tx = tx.add({
     instruction: fromWeb3JsInstruction(metadataPointerInstruction),
     signers: [umi.identity], // Payer needs to sign
+    bytesCreatedOnChain: 0,
+  });
+
+  const closeMintIx = createInitializeMintCloseAuthorityInstruction(
+    umiPkToSolanaPk(mint.publicKey),
+    umiPkToSolanaPk(umi.identity.publicKey),
+    umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+  );
+
+  tx = tx.add({
+    instruction: fromWeb3JsInstruction(closeMintIx),
+    signers: [umi.identity],
     bytesCreatedOnChain: 0,
   });
 
@@ -234,6 +241,7 @@ export async function createSplToken(
     console.log("No initial mint amount specified, skipping mint.");
   }
 
+  console.log("DOES IT FIT IN ONE TX2?: ", tx.fitsInOneTransaction(umi));
   // --- Build, Sign, and Send Transaction ---
   console.log("Building and signing transaction...");
   tx = await tx.setLatestBlockhash(umi);
