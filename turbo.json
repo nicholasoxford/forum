@@ -1,7 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["RPC_URL", "SECRET_KEY"],
+  "globalEnv": [
+    "RPC_URL",
+    "SECRET_KEY",
+    "TURSO_CONNECTION_URL",
+    "TURSO_AUTH_TOKEN"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

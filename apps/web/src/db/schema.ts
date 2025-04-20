@@ -20,10 +20,33 @@ export const users = sqliteTable("users", {
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 
+// --- Tokens ---
+// Represents all tokens created through the platform.
+export const tokens = sqliteTable("tokens", {
+  tokenMintAddress: text("token_mint_address").primaryKey(), // Solana token mint address
+  tokenSymbol: text("token_symbol").notNull(),
+  tokenName: text("token_name").notNull(),
+  decimals: integer("decimals").notNull(),
+  transferFeeBasisPoints: integer("transfer_fee_basis_points").notNull(),
+  maximumFee: text("maximum_fee").notNull(), // Store as string to preserve precision
+  metadataUri: text("metadata_uri"),
+  creatorWalletAddress: text("creator_wallet_address")
+    .notNull()
+    .references(() => users.walletAddress),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
+export type InsertToken = typeof tokens.$inferInsert;
+export type SelectToken = typeof tokens.$inferSelect;
+
 // --- GroupChats / Tokens ---
 // Represents the core entity: a token gating access to a specific group chat.
 export const groupChats = sqliteTable("group_chats", {
-  tokenMintAddress: text("token_mint_address").primaryKey(), // Solana token mint address
+  tokenMintAddress: text("token_mint_address")
+    .primaryKey()
+    .references(() => tokens.tokenMintAddress), // Solana token mint address
   telegramChatId: text("telegram_chat_id").notNull().unique(), // Associated Telegram chat ID
   tokenSymbol: text("token_symbol").notNull(),
   tokenName: text("token_name").notNull(),

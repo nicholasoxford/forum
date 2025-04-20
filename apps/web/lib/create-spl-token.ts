@@ -1,8 +1,6 @@
 import {
   Umi,
   generateSigner,
-  PublicKey as UmiPublicKey,
-  publicKey,
   Signer,
   amountToNumber,
   TransactionBuilder,
@@ -17,33 +15,26 @@ import {
   getAssociatedTokenAddress,
   getMintLen,
   LENGTH_SIZE,
-  TOKEN_2022_PROGRAM_ID as SPL_TOKEN_2022_PROGRAM_ID_SOLANA,
+  TOKEN_2022_PROGRAM_ID,
   TYPE_SIZE,
 } from "@solana/spl-token";
-import { PublicKey, PublicKey as SolanaPublicKey } from "@solana/web3.js";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import {
   createAccount,
   createAssociatedToken,
   mplToolbox,
 } from "@metaplex-foundation/mpl-toolbox";
-import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters";
+import {
+  fromWeb3JsInstruction,
+  fromWeb3JsPublicKey,
+  toWeb3JsPublicKey,
+} from "@metaplex-foundation/umi-web3js-adapters";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import {
   createInitializeInstruction,
   pack,
   TokenMetadata,
 } from "@solana/spl-token-metadata";
-
-// Define the Token 2022 Program ID for Umi
-const TOKEN_2022_PROGRAM_ID = publicKey(
-  SPL_TOKEN_2022_PROGRAM_ID_SOLANA.toString()
-);
-
-// Helper to convert Umi PublicKey to Solana PublicKey
-function umiPkToSolanaPk(pk: UmiPublicKey): SolanaPublicKey {
-  return new SolanaPublicKey(pk.toString());
-}
 
 // Token configuration interface
 export interface SplTokenConfig {
@@ -91,7 +82,7 @@ export async function createSplToken(
 
   // Define the metadata structure using config values
   const tokenMetadata: TokenMetadata = {
-    mint: umiPkToSolanaPk(mint.publicKey),
+    mint: toWeb3JsPublicKey(mint.publicKey),
     name: config.name,
     symbol: config.symbol,
     uri: config.uri,
@@ -116,19 +107,19 @@ export async function createSplToken(
       payer: umi.payer,
       lamports: rent,
       space: mintLen, // Only allocate space for extensions initially
-      programId: TOKEN_2022_PROGRAM_ID,
+      programId: fromWeb3JsPublicKey(TOKEN_2022_PROGRAM_ID),
     })
   );
 
   // 2. Initialize TransferFeeConfig Instruction
   const initializeTransferFeeConfig =
     createInitializeTransferFeeConfigInstruction(
-      umiPkToSolanaPk(mint.publicKey),
-      umiPkToSolanaPk(transferFeeConfigAuthority.publicKey),
-      umiPkToSolanaPk(withdrawWithheldAuthority.publicKey),
+      toWeb3JsPublicKey(mint.publicKey),
+      toWeb3JsPublicKey(transferFeeConfigAuthority.publicKey),
+      toWeb3JsPublicKey(withdrawWithheldAuthority.publicKey),
       config.transferFeeBasisPoints,
       config.maximumFee,
-      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+      TOKEN_2022_PROGRAM_ID
     );
 
   tx = tx.add({
@@ -139,10 +130,10 @@ export async function createSplToken(
 
   // 3. Initialize MetadataPointer Instruction
   const metadataPointerInstruction = createInitializeMetadataPointerInstruction(
-    umiPkToSolanaPk(mint.publicKey),
-    umiPkToSolanaPk(umi.payer.publicKey), // Payer is the update authority for the pointer
-    umiPkToSolanaPk(mint.publicKey), // Metadata address is the mint itself
-    umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+    toWeb3JsPublicKey(mint.publicKey),
+    toWeb3JsPublicKey(umi.payer.publicKey), // Payer is the update authority for the pointer
+    toWeb3JsPublicKey(mint.publicKey), // Metadata address is the mint itself
+    TOKEN_2022_PROGRAM_ID
   );
 
   tx = tx.add({
@@ -152,9 +143,9 @@ export async function createSplToken(
   });
 
   const closeMintIx = createInitializeMintCloseAuthorityInstruction(
-    umiPkToSolanaPk(mint.publicKey),
-    umiPkToSolanaPk(umi.identity.publicKey),
-    umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+    toWeb3JsPublicKey(mint.publicKey),
+    toWeb3JsPublicKey(umi.identity.publicKey),
+    TOKEN_2022_PROGRAM_ID
   );
 
   tx = tx.add({
@@ -165,11 +156,11 @@ export async function createSplToken(
 
   // 4. Initialize Mint Instruction
   const initializeMint = createInitializeMintInstruction(
-    umiPkToSolanaPk(mint.publicKey),
+    toWeb3JsPublicKey(mint.publicKey),
     config.decimals,
-    umiPkToSolanaPk(mintAuthority.publicKey),
-    umiPkToSolanaPk(mintAuthority.publicKey), // Freeze authority
-    umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+    toWeb3JsPublicKey(mintAuthority.publicKey),
+    toWeb3JsPublicKey(mintAuthority.publicKey), // Freeze authority
+    TOKEN_2022_PROGRAM_ID
   );
 
   tx = tx.add({
@@ -180,14 +171,14 @@ export async function createSplToken(
 
   // 5. Initialize Metadata Instruction (writes metadata to the mint account)
   const initializeMetadata = createInitializeInstruction({
-    programId: umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID),
-    mint: umiPkToSolanaPk(mint.publicKey),
-    metadata: umiPkToSolanaPk(mint.publicKey), // Metadata stored in mint account
+    programId: TOKEN_2022_PROGRAM_ID,
+    mint: toWeb3JsPublicKey(mint.publicKey),
+    metadata: toWeb3JsPublicKey(mint.publicKey), // Metadata stored in mint account
     name: tokenMetadata.name,
     symbol: tokenMetadata.symbol,
     uri: tokenMetadata.uri,
-    mintAuthority: umiPkToSolanaPk(mintAuthority.publicKey),
-    updateAuthority: umiPkToSolanaPk(umi.payer.publicKey), // Payer is the metadata update authority
+    mintAuthority: toWeb3JsPublicKey(mintAuthority.publicKey),
+    updateAuthority: toWeb3JsPublicKey(umi.payer.publicKey), // Payer is the metadata update authority
   });
 
   tx = tx.add({
@@ -209,26 +200,26 @@ export async function createSplToken(
     // Create and add ATA instruction
 
     const destinationAccount = await getAssociatedTokenAddress(
-      umiPkToSolanaPk(mint.publicKey),
-      umiPkToSolanaPk(umi.identity.publicKey),
+      toWeb3JsPublicKey(mint.publicKey),
+      toWeb3JsPublicKey(umi.identity.publicKey),
       false,
-      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+      TOKEN_2022_PROGRAM_ID
     );
     console.log("Destination Account: ", destinationAccount.toString());
     tx = tx.add(
       createAssociatedToken(umi, {
         mint: mint.publicKey,
         owner: umi.identity.publicKey,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
+        tokenProgram: fromWeb3JsPublicKey(TOKEN_2022_PROGRAM_ID),
       })
     );
     const mintV1Instruction = createMintToInstruction(
-      umiPkToSolanaPk(mint.publicKey),
+      toWeb3JsPublicKey(mint.publicKey),
       destinationAccount,
-      umiPkToSolanaPk(mintAuthority.publicKey),
+      toWeb3JsPublicKey(mintAuthority.publicKey),
       config.initialMintAmount,
       [],
-      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+      TOKEN_2022_PROGRAM_ID
     );
 
     tx = tx.add({
