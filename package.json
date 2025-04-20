@@ -7,11 +7,12 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
+    "build": "bun --bun turbo build",
+    "dev": "bun --bun --env-file=apps/web/.env.local turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
+  "packageManager": "bun@1.2.11",
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
