@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
-import { Connection } from "@solana/web3.js";
 import { mplToolbox } from "@metaplex-foundation/mpl-toolbox";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { Button } from "@workspace/ui/components/button";

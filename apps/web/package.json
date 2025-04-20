@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --env-file=.env.local --bun run next dev",
+    "dev": "next dev ",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -20,6 +20,7 @@
     "@solana/wallet-adapter-phantom": "^0.9.26",
     "@solana/wallet-adapter-solflare": "^0.6.30",
     "@solana/wallet-adapter-trust": "^0.1.15",
+    "@solana/web3.js": "^1.98.0",
     "@vertigo-amm/vertigo-sdk": "^0.1.8",
     "@workspace/ui": "workspace:*",
     "dotenv": "^16.5.0",
@@ -33,7 +34,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^2.0.3",
-    "telegram": "^2.26.22"
+    "telegram": "^2.26.22",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@types/bun": "^1.2.10",

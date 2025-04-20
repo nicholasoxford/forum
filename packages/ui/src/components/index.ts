@@ -6,3 +6,4 @@ export { FAQ } from "./faq";
 export { Footer } from "./footer";
 export { TokenCreator } from "./token-creator";
 export * from "./wallet-connect/index";
+export * from "./skeleton";
