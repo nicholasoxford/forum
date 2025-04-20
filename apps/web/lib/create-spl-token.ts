@@ -8,7 +8,6 @@ import {
   TransactionBuilder,
 } from "@metaplex-foundation/umi";
 import {
-  createCloseAccountInstruction,
   createInitializeMetadataPointerInstruction,
   createInitializeMintCloseAuthorityInstruction,
   createInitializeMintInstruction,
@@ -211,7 +210,7 @@ export async function createSplToken(
 
     const destinationAccount = await getAssociatedTokenAddress(
       umiPkToSolanaPk(mint.publicKey),
-      new PublicKey("BprhcaJtUTER4e3ArGYC1bmgjqvyuh1rovY3p8dgv2Eq"),
+      umiPkToSolanaPk(umi.identity.publicKey),
       false,
       umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
     );
@@ -219,7 +218,7 @@ export async function createSplToken(
     tx = tx.add(
       createAssociatedToken(umi, {
         mint: mint.publicKey,
-        owner: publicKey("BprhcaJtUTER4e3ArGYC1bmgjqvyuh1rovY3p8dgv2Eq"),
+        owner: umi.identity.publicKey,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
       })
     );

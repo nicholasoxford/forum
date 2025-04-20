@@ -29,6 +29,7 @@
         "@solana/wallet-adapter-phantom": "^0.9.26",
         "@solana/wallet-adapter-solflare": "^0.6.30",
         "@solana/wallet-adapter-trust": "^0.1.15",
+        "@vertigo-amm/vertigo-sdk": "^0.1.8",
         "@workspace/ui": "workspace:*",
         "dotenv": "^16.5.0",
         "drizzle-kit": "^0.31.0",
