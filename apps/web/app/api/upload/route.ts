@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generatePresignedUrl } from "@/lib/s3-client";
 
 // Maximum file size for frontend validation
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(request: NextRequest) {
   try {

@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun --bun turbo build",
-    "dev": "bun --bun --env-file=apps/web/.env.local turbo dev",
+    "build": "bun --bun run turbo build",
+    "dev": "bun --bun --env-file=apps/web/.env.local run turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
