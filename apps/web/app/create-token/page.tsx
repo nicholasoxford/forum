@@ -27,7 +27,7 @@ import { base58 } from "@metaplex-foundation/umi/serializers";
 const DEFAULT_DECIMALS = 9;
 const DEFAULT_FEE_BASIS_POINTS = 100;
 const DEFAULT_MAX_FEE = 1_000_000_000n;
-const DEFAULT_INITIAL_MINT_AMOUNT = 1_000_000_000_000n;
+const DEFAULT_INITIAL_MINT_AMOUNT = 1_000_000_000_000_000_000n;
 
 export default function CreateTokenPage() {
   const wallet = useWallet();
@@ -59,7 +59,7 @@ export default function CreateTokenPage() {
 
     try {
       const parsedMaxFee = BigInt(maxFee);
-      const parsedInitialMint = BigInt(initialMint);
+      const parsedInitialMintAmount = BigInt(initialMint);
 
       const tokenConfig: SplTokenConfig = {
         name,
@@ -69,32 +69,19 @@ export default function CreateTokenPage() {
         transferFeeBasisPoints: feeBps,
         maximumFee: parsedMaxFee,
         initialMintAmount:
-          parsedInitialMint > 0n ? parsedInitialMint : undefined,
+          parsedInitialMintAmount > 0n ? parsedInitialMintAmount : undefined,
       };
 
       const { mint: mintSigner } = await createSplToken(umi, tokenConfig);
-      setMintAddress("blah");
+      setMintAddress(mintSigner.publicKey.toString());
 
-      toast.info("Please approve the transaction in your wallet...");
-      const connection = new Connection(
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL!
+      toast.success(
+        `Token creation initiated! Mint: ${mintSigner.publicKey.toString()}`,
+        {
+          description:
+            "Transaction sent. Check console for details and explorer links.",
+        }
       );
-      console.log("GETTING HERE");
-      // const sent = await wallet.sendTransaction(mintTx, connection, {
-      //   skipPreflight: true,
-      // });
-
-      setTxSignature("yup");
-      toast.success(`Token successfully created! Mint: ${mintSigner}`, {
-        action: {
-          label: "View Tx",
-          onClick: () =>
-            window.open(
-              `https://explorer.solana.com/tx/yup?cluster=devnet`,
-              "_blank"
-            ),
-        },
-      });
     } catch (error: any) {
       console.error("Token creation failed:", error);
       toast.error("Token creation failed", {

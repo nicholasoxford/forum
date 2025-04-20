@@ -4,7 +4,6 @@ import {
   PublicKey as UmiPublicKey,
   publicKey,
   Signer,
-  Pda,
   amountToNumber,
   TransactionBuilder,
 } from "@metaplex-foundation/umi";
@@ -12,27 +11,37 @@ import {
   createInitializeMetadataPointerInstruction,
   createInitializeMintInstruction,
   createInitializeTransferFeeConfigInstruction,
+  createMintToInstruction,
   ExtensionType,
+  getAssociatedTokenAddress,
   getMintLen,
   LENGTH_SIZE,
-  MINT_SIZE,
   TOKEN_2022_PROGRAM_ID as SPL_TOKEN_2022_PROGRAM_ID_SOLANA,
   TYPE_SIZE,
 } from "@solana/spl-token";
-import { PublicKey as SolanaPublicKey, SystemProgram } from "@solana/web3.js";
+import { PublicKey, PublicKey as SolanaPublicKey } from "@solana/web3.js";
 import {
+  mintV1,
   mplTokenMetadata,
-  findMetadataPda,
+  TokenStandard,
 } from "@metaplex-foundation/mpl-token-metadata";
-import { createAccount, mplToolbox } from "@metaplex-foundation/mpl-toolbox";
-import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters";
+import {
+  createAccount,
+  createAssociatedToken,
+  createTokenIfMissing,
+  mplToolbox,
+} from "@metaplex-foundation/mpl-toolbox";
+import {
+  fromWeb3JsInstruction,
+  fromWeb3JsPublicKey,
+} from "@metaplex-foundation/umi-web3js-adapters";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import {
   createInitializeInstruction,
-  createUpdateFieldInstruction,
   pack,
   TokenMetadata,
 } from "@solana/spl-token-metadata";
+
 // Define the Token 2022 Program ID for Umi
 const TOKEN_2022_PROGRAM_ID = publicKey(
   SPL_TOKEN_2022_PROGRAM_ID_SOLANA.toString()
@@ -51,14 +60,14 @@ export interface SplTokenConfig {
   decimals: number;
   transferFeeBasisPoints: number;
   maximumFee: bigint;
-  initialMintAmount?: bigint;
+  initialMintAmount?: bigint; // Add optional initial mint amount
   transferFeeConfigAuthority?: Signer;
   withdrawWithheldAuthority?: Signer;
 }
 
 /**
  * Creates a Token 2022 mint with transfer fee extension, metadata, and optional initial mint.
- * Returns a TransactionBuilder ready to be sent.
+ * Returns the mint signer.
  */
 export async function createSplToken(
   umi: Umi,
@@ -81,147 +90,175 @@ export async function createSplToken(
   const withdrawWithheldAuthority =
     config.withdrawWithheldAuthority ?? umi.identity;
 
-  // const extensionJustTransferFeeConfig = [ExtensionType.TransferFeeConfig];
-  // const mintLenWithTransferFeeConfig = getMintLen(
-  //   extensionJustTransferFeeConfig
-  // );
   const extensions = [
     ExtensionType.TransferFeeConfig,
     ExtensionType.MetadataPointer,
   ];
-  const metadata: TokenMetadata = {
+
+  // Define the metadata structure using config values
+  const tokenMetadata: TokenMetadata = {
     mint: umiPkToSolanaPk(mint.publicKey),
-    name: "TOKEN_NAME",
-    symbol: "SMBL",
-    uri: "URI",
+    name: config.name,
+    symbol: config.symbol,
+    uri: config.uri,
     additionalMetadata: [],
   };
-  const mintLen = getMintLen(extensions);
-  const size = mintLen + TYPE_SIZE + LENGTH_SIZE + pack(metadata).length;
-  const rent = await umi.rpc.getRent(size);
 
-  console.log("MINT LEN: ", MINT_SIZE);
-  console.log("RENT: ", amountToNumber(rent));
+  const mintLen = getMintLen(extensions);
+  const metadataLen = pack(tokenMetadata).length;
+  const totalSize = mintLen + TYPE_SIZE + LENGTH_SIZE + metadataLen;
+  const rent = await umi.rpc.getRent(totalSize);
+
+  console.log("Required Mint Size: ", totalSize);
+  console.log("Rent Lamports: ", amountToNumber(rent));
 
   // Create transaction builder
   let tx = new TransactionBuilder();
 
+  // 1. Create Account Instruction
   tx = tx.add(
     createAccount(umi, {
       newAccount: mint,
       payer: umi.payer,
       lamports: rent,
-      space: mintLen,
+      space: mintLen, // Only allocate space for extensions initially
       programId: TOKEN_2022_PROGRAM_ID,
     })
   );
 
-  console.log("HERE?3");
-  // Instruction to initialize TransferFeeConfig Extension
+  // 2. Initialize TransferFeeConfig Instruction
   const initializeTransferFeeConfig =
     createInitializeTransferFeeConfigInstruction(
-      umiPkToSolanaPk(mint.publicKey), // Mint Account address
-      umiPkToSolanaPk(transferFeeConfigAuthority.publicKey), // Authority to update fees
-      umiPkToSolanaPk(withdrawWithheldAuthority.publicKey), // Authority to withdraw fees
-      50, // Basis points for transfer fee calculation
-      100000n, // Maximum fee per transfer
-      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID) // Token Extension Program ID
+      umiPkToSolanaPk(mint.publicKey),
+      umiPkToSolanaPk(transferFeeConfigAuthority.publicKey),
+      umiPkToSolanaPk(withdrawWithheldAuthority.publicKey),
+      config.transferFeeBasisPoints,
+      config.maximumFee,
+      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
     );
 
   tx = tx.add({
     instruction: fromWeb3JsInstruction(initializeTransferFeeConfig),
-    signers: [umi.identity],
+    signers: [umi.identity], // TransferFee authority needs to sign if different from payer
     bytesCreatedOnChain: 0,
   });
-  const metadataInstruction = createInitializeMetadataPointerInstruction(
+
+  // 3. Initialize MetadataPointer Instruction
+  const metadataPointerInstruction = createInitializeMetadataPointerInstruction(
     umiPkToSolanaPk(mint.publicKey),
-    umiPkToSolanaPk(umi.payer.publicKey),
-    umiPkToSolanaPk(mint.publicKey),
+    umiPkToSolanaPk(umi.payer.publicKey), // Payer is the update authority for the pointer
+    umiPkToSolanaPk(mint.publicKey), // Metadata address is the mint itself
     umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
   );
 
   tx = tx.add({
-    instruction: fromWeb3JsInstruction(metadataInstruction),
-    signers: [umi.identity, mint],
+    instruction: fromWeb3JsInstruction(metadataPointerInstruction),
+    signers: [umi.identity], // Payer needs to sign
     bytesCreatedOnChain: 0,
   });
-  // Instruction to initialize Mint Account data
-  const initializeMintInstruction = createInitializeMintInstruction(
-    umiPkToSolanaPk(mint.publicKey), // Mint Account Address
-    6, // Decimals of Mint
-    umiPkToSolanaPk(mintAuthority.publicKey), // Designated Mint Authority
+
+  // 4. Initialize Mint Instruction
+  const initializeMint = createInitializeMintInstruction(
+    umiPkToSolanaPk(mint.publicKey),
+    config.decimals,
     umiPkToSolanaPk(mintAuthority.publicKey),
-    umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID) // Token Extension Program ID
+    umiPkToSolanaPk(mintAuthority.publicKey), // Freeze authority
+    umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
   );
 
   tx = tx.add({
-    instruction: fromWeb3JsInstruction(initializeMintInstruction),
-    signers: [umi.identity],
+    instruction: fromWeb3JsInstruction(initializeMint),
+    signers: [umi.identity], // Mint authority needs to sign if different from payer
     bytesCreatedOnChain: 0,
   });
-  console.log("HERE?4");
 
-  const initializeMetadataInstruction = createInitializeInstruction({
+  // 5. Initialize Metadata Instruction (writes metadata to the mint account)
+  const initializeMetadata = createInitializeInstruction({
     programId: umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID),
     mint: umiPkToSolanaPk(mint.publicKey),
-    metadata: umiPkToSolanaPk(mint.publicKey),
-    name: metadata.name,
-    symbol: metadata.symbol,
-    uri: metadata.uri,
+    metadata: umiPkToSolanaPk(mint.publicKey), // Metadata stored in mint account
+    name: tokenMetadata.name,
+    symbol: tokenMetadata.symbol,
+    uri: tokenMetadata.uri,
     mintAuthority: umiPkToSolanaPk(mintAuthority.publicKey),
-    updateAuthority: umiPkToSolanaPk(umi.payer.publicKey),
+    updateAuthority: umiPkToSolanaPk(umi.payer.publicKey), // Payer is the metadata update authority
   });
 
   tx = tx.add({
-    instruction: fromWeb3JsInstruction(initializeMetadataInstruction),
+    instruction: fromWeb3JsInstruction(initializeMetadata),
+    // Signers: Mint authority and Update authority (payer)
+    // Umi automatically adds payer and mintAuthority should already be umi.identity
+    // If mintAuthority were different, it and the update authority (payer) would need signing.
+    // Since mint is also a signer for the transaction itself, we add it here.
     signers: [umi.identity, mint],
-    bytesCreatedOnChain: 0,
+    bytesCreatedOnChain: metadataLen, // Specify bytes for metadata packed into mint account
   });
 
+  // 6. Optional: Mint initial supply if amount is provided
+  if (config.initialMintAmount && config.initialMintAmount > 0n) {
+    console.log(
+      `Minting initial supply: ${config.initialMintAmount.toString()} lamports`
+    );
+
+    // Create and add ATA instruction
+
+    const destinationAccount = await getAssociatedTokenAddress(
+      umiPkToSolanaPk(mint.publicKey),
+      new PublicKey("BprhcaJtUTER4e3ArGYC1bmgjqvyuh1rovY3p8dgv2Eq"),
+      false,
+      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+    );
+    console.log("Destination Account: ", destinationAccount.toString());
+    tx = tx.add(
+      createAssociatedToken(umi, {
+        mint: mint.publicKey,
+        owner: publicKey("BprhcaJtUTER4e3ArGYC1bmgjqvyuh1rovY3p8dgv2Eq"),
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+    );
+    const mintV1Instruction = createMintToInstruction(
+      umiPkToSolanaPk(mint.publicKey),
+      destinationAccount,
+      umiPkToSolanaPk(mintAuthority.publicKey),
+      config.initialMintAmount,
+      [],
+      umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
+    );
+
+    tx = tx.add({
+      instruction: fromWeb3JsInstruction(mintV1Instruction),
+      signers: [umi.identity, mint],
+      bytesCreatedOnChain: 0,
+    });
+  } else {
+    console.log("No initial mint amount specified, skipping mint.");
+  }
+
+  // --- Build, Sign, and Send Transaction ---
+  console.log("Building and signing transaction...");
   tx = await tx.setLatestBlockhash(umi);
   tx = tx.setFeePayer(umi.identity);
-  const built = await tx.buildAndSign(umi);
+  const builtTx = await tx.buildAndSign(umi);
 
-  const mintTransaction = await mint.signTransaction(built);
+  // Sign with the mint keypair
+  const signedTransaction = await mint.signTransaction(builtTx);
 
-  const result = await umi.rpc.sendTransaction(mintTransaction, {
-    skipPreflight: true,
+  console.log("Sending transaction...");
+  const result = await umi.rpc.sendTransaction(signedTransaction, {
+    skipPreflight: true, // Recommended for Token 2022 extension ixns
   });
 
-  console.log(`Transaction Signature: ${base58.deserialize(result)[0]}`);
+  const signature = base58.deserialize(result)[0];
+  console.log(`Transaction Signature: ${signature}`);
+  console.log(
+    `Mint Address: ${mint.publicKey.toString()} (Explorer: https://explorer.solana.com/address/${mint.publicKey.toString()}?cluster=devnet)`
+  );
+  console.log(
+    `Transaction Link: https://explorer.solana.com/tx/${signature}?cluster=devnet`
+  );
 
-  // const mintTransaction = new Transaction().add(
-  //   SystemProgram.createAccount({
-  //     fromPubkey: umiPkToSolanaPk(umi.identity.publicKey),
-  //     newAccountPubkey: umiPkToSolanaPk(mint.publicKey),
-  //     space: mintLen,
-  //     lamports: amountToNumber(mintLamports),
-  //     programId: umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID),
-  //   }),
-  //   // createInitializeTransferFeeConfigInstruction(
-  //   //   umiPkToSolanaPk(mint.publicKey),
-  //   //   umiPkToSolanaPk(transferFeeConfigAuthority.publicKey),
-  //   //   umiPkToSolanaPk(withdrawWithheldAuthority.publicKey),
-  //   //   config.transferFeeBasisPoints,
-  //   //   config.maximumFee,
-  //   //   umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
-  //   // ),
-  //   createInitializeMintInstruction(
-  //     umiPkToSolanaPk(mint.publicKey),
-  //     config.decimals,
-  //     umiPkToSolanaPk(mintAuthority.publicKey),
-  //     null,
-  //     umiPkToSolanaPk(TOKEN_2022_PROGRAM_ID)
-  //   )
-  // );
-  // const mintKP = toWeb3JsKeypair(mint);
-  // console.log("MINT K1P", mintKP);
-  // const latestBlockhash = await umi.rpc.getLatestBlockhash();
-  // mintTransaction.feePayer = umiPkToSolanaPk(umi.identity.publicKey);
-  // mintTransaction.recentBlockhash = latestBlockhash.blockhash;
-  // mintTransaction.lastValidBlockHeight = latestBlockhash.lastValidBlockHeight;
-  // // Convert it using the UmiWeb3jsAdapters Package
-  // console.log("BROS?");
+  // TODO: Add confirmation logic if needed
+
   return {
     mint: mint,
   };
