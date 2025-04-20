@@ -12,22 +12,45 @@ interface TokenCreatorProps {
     decimals: number;
     transferFeeBasisPoints: number;
     maximumFee: bigint;
+    initialMintAmount?: bigint;
+    amount: bigint;
   }) => Promise<void>;
   isLoading?: boolean;
+  defaultName?: string;
+  defaultSymbol?: string;
+  defaultDescription?: string;
+  defaultDecimals?: number;
+  defaultTransferFeeBasisPoints?: number;
+  defaultMaximumFee?: string;
+  defaultInitialMintAmount?: string;
+  defaultImageUrl?: string;
 }
 
 export const TokenCreator: FC<TokenCreatorProps> = ({
   onCreateToken,
   isLoading = false,
+  defaultName = "",
+  defaultSymbol = "",
+  defaultDescription = "",
+  defaultDecimals = 9,
+  defaultTransferFeeBasisPoints = 100,
+  defaultMaximumFee = "1000000000",
+  defaultInitialMintAmount = "1000000000",
+  defaultImageUrl = "",
 }) => {
-  const [name, setName] = useState("");
-  const [symbol, setSymbol] = useState("");
-  const [uri, setUri] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [decimals, setDecimals] = useState(9); // Default for most tokens
-  const [transferFeeBasisPoints, setTransferFeeBasisPoints] = useState(100); // 1%
-  const [maximumFee, setMaximumFee] = useState("1000000000"); // 1 token (assuming 9 decimals)
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [symbol, setSymbol] = useState(defaultSymbol);
+  const [uri, setUri] = useState(""); // URI is generated, not prefilled
+  const [imageUrl, setImageUrl] = useState(defaultImageUrl);
+  const [decimals, setDecimals] = useState(defaultDecimals);
+  const [transferFeeBasisPoints, setTransferFeeBasisPoints] = useState(
+    defaultTransferFeeBasisPoints
+  );
+  const [maximumFee, setMaximumFee] = useState(defaultMaximumFee);
+  const [initialMintAmount, setInitialMintAmount] = useState(
+    defaultInitialMintAmount
+  );
+  const [description, setDescription] = useState(defaultDescription);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleImageUpload = (url: string) => {
@@ -83,7 +106,7 @@ export const TokenCreator: FC<TokenCreatorProps> = ({
       // Generate and upload metadata
       const metadataUri = await generateMetadata();
       if (!metadataUri) return;
-
+      console.log({ initialMintAmount });
       // Create token
       await onCreateToken({
         name,
@@ -92,6 +115,8 @@ export const TokenCreator: FC<TokenCreatorProps> = ({
         decimals,
         transferFeeBasisPoints,
         maximumFee: BigInt(maximumFee),
+        initialMintAmount: BigInt(initialMintAmount),
+        amount: BigInt(initialMintAmount),
       });
 
       // Reset form
@@ -103,6 +128,7 @@ export const TokenCreator: FC<TokenCreatorProps> = ({
       setDecimals(9);
       setTransferFeeBasisPoints(100);
       setMaximumFee("1000000000");
+      setInitialMintAmount("1000000000");
     } catch (error) {
       console.error("Failed to create token:", error);
     }
@@ -239,6 +265,31 @@ export const TokenCreator: FC<TokenCreatorProps> = ({
               required
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="initialMintAmount"
+            className="block text-sm font-medium"
+          >
+            Initial Mint Amount
+          </label>
+          <input
+            id="initialMintAmount"
+            type="text"
+            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            value={initialMintAmount}
+            onChange={(e) => {
+              // Only allow numbers
+              if (/^\d*$/.test(e.target.value)) {
+                setInitialMintAmount(e.target.value);
+              }
+            }}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Amount of tokens to mint to your wallet initially
+          </p>
         </div>
 
         <div className="pt-4">
