@@ -18,7 +18,9 @@ import { createTelegramChannel } from "@/lib/telegram";
  *   metadataUri?: string,
  *   creatorWalletAddress: string,
  *   creatorUsername?: string,
- *   creatorTelegramUserId?: string
+ *   creatorTelegramUserId?: string,
+ *   requiredHoldings: string,
+ *   targetMarketCap?: string
  * }
  */
 export async function POST(request: NextRequest) {
@@ -36,6 +38,8 @@ export async function POST(request: NextRequest) {
       creatorWalletAddress,
       creatorUsername,
       creatorTelegramUserId,
+      requiredHoldings,
+      targetMarketCap,
     } = body ?? {};
 
     // Basic validation
@@ -74,25 +78,29 @@ export async function POST(request: NextRequest) {
       transferFeeBasisPoints,
       maximumFee,
       metadataUri,
+      targetMarketCap: targetMarketCap || null,
       creatorWalletAddress,
     });
 
     // 3. Create a dedicated Telegram channel for this token
     let telegramChannelId: string | null = null;
+    let telegramUsername: string | null = null;
     try {
-      const { channelId } = await createTelegramChannel(
+      const { channelId, username } = await createTelegramChannel(
         `${tokenSymbol} Holders`,
         `Official chat for ${tokenName} (${tokenSymbol}) token holders.`
       );
       telegramChannelId = channelId;
+      telegramUsername = username;
 
-      // Persist channel info in group_chats table with default requiredHoldings = "0"
+      // Persist channel info in group_chats table with requiredHoldings from input or default "0"
       await db.insert(groupChats).values({
         tokenMintAddress,
         telegramChatId: channelId,
+        telegramUsername: username,
         tokenSymbol,
         tokenName,
-        requiredHoldings: "0", // default, can be updated later
+        requiredHoldings: requiredHoldings || "0", // Use provided value or default
         creatorWalletAddress,
       });
     } catch (tgError) {
@@ -100,7 +108,11 @@ export async function POST(request: NextRequest) {
       // Not fatal for token creation; continue.
     }
 
-    return NextResponse.json({ success: true, telegramChannelId });
+    return NextResponse.json({
+      success: true,
+      telegramChannelId,
+      telegramUsername,
+    });
   } catch (error: any) {
     console.error("[tokens POST]", error);
     return NextResponse.json(

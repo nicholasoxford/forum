@@ -15,10 +15,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only allow image uploads
-    if (!contentType.startsWith("image/")) {
+    // Allow both image uploads and JSON metadata files
+    if (
+      !contentType.startsWith("image/") &&
+      contentType !== "application/json"
+    ) {
       return NextResponse.json(
-        { error: "Only image files are allowed" },
+        { error: "Only image files or JSON metadata are allowed" },
         { status: 400 }
       );
     }

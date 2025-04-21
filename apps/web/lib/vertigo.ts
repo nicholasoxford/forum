@@ -90,16 +90,9 @@ function getPayerKeypair(): Keypair {
 // Helper function to create Vertigo SDK instance
 function createVertigoSDK(connection: Connection): VertigoSDK {
   const payer = getPayerKeypair();
-  const wallet = new NodeWallet(payer);
+  const wallet = new anchor.Wallet(payer);
   try {
-    // Use absolute paths for IDL files, avoiding path duplication
-    const idlPath = "./idl";
-    console.log("IDL Path:", idlPath); // Add logging to verify path
-    return new VertigoSDK(connection, wallet, {
-      ammProgramPath: `${idlPath}/amm.json`,
-      token2022ProgramPath: `${idlPath}/token_2022_factory.json`,
-      splTokenProgramPath: `${idlPath}/spl_token_factory.json`,
-    });
+    return new VertigoSDK(connection, wallet);
   } catch (error) {
     console.error("Error creating VertigoSDK:", error);
     throw error;
@@ -114,20 +107,17 @@ export async function launchPool(
   params: LaunchPoolParams
 ): Promise<{ signature: string; poolAddress: string; mintB: string }> {
   try {
-    console.log("1111here bro?");
     const vertigo = createVertigoSDK(connection);
+    console.log("BLOWS UP BEFORE THIS");
     const payer = getPayerKeypair();
-    console.log("payer", payer);
     // Generate keypairs for the pool
     const owner = Keypair.fromSecretKey(payer.secretKey);
 
     let mintB: PublicKey;
     let tokenWallet: PublicKey;
     let tokenWalletAuthority: Keypair;
-    console.log("here bro?");
     // Check if we're using an existing token
     if (params.existingToken) {
-      console.log("Using existing token for pool creation");
       mintB = params.existingToken.mintB;
       tokenWallet = params.existingToken.tokenWallet;
       // Use provided wallet authority or generate a new one

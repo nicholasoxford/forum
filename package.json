@@ -23,11 +23,5 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
-    "@metaplex-foundation/umi": "^1.2.0",
-    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0",
-    "@metaplex-foundation/umi-signer-wallet-adapters": "^1.2.0",
-    "@vertigo-amm/vertigo-sdk": "^0.1.8"
-  }
+  "dependencies": {}
 }

@@ -33,7 +33,7 @@ export async function getTelegramClient(): Promise<TelegramClient> {
 export async function createTelegramChannel(
   title: string,
   about: string
-): Promise<{ channelId: string }> {
+): Promise<{ channelId: string; username: string }> {
   const client = await getTelegramClient();
 
   try {
@@ -43,9 +43,10 @@ export async function createTelegramChannel(
 
     // Configure the channel
     const inputChannel = createInputChannel(channel);
-    await configureChannel(client, inputChannel, channel, title);
+    const username = generateUsername(title);
+    await configureChannel(client, inputChannel, channel, title, username);
 
-    return { channelId };
+    return { channelId, username };
   } finally {
     await client.disconnect();
   }
@@ -108,10 +109,10 @@ async function configureChannel(
   client: TelegramClient,
   inputChannel: Api.InputChannel,
   channel: Api.Channel,
-  title: string
+  title: string,
+  username: string
 ): Promise<void> {
   // Set a public username
-  const username = generateUsername(title);
   await client.invoke(
     new Api.channels.UpdateUsername({
       channel: inputChannel,

@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "@workspace/ui/styles/globals.css";
 import { WalletProvider } from "../components/wallet-connect/wallet-provider";
+import { Header } from "@workspace/ui/components/header";
 
 const inter = Inter({ subsets: ["latin"] });
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+});
 
 export const metadata: Metadata = {
   title: "Token Rewards Platform",
@@ -17,8 +22,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <WalletProvider>{children}</WalletProvider>
+      <body
+        className={`${inter.className} ${spaceGrotesk.variable} token-flow-bg`}
+      >
+        <WalletProvider>
+          <Header />
+          {children}
+        </WalletProvider>
       </body>
     </html>
   );

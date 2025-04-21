@@ -30,6 +30,7 @@ export const tokens = sqliteTable("tokens", {
   transferFeeBasisPoints: integer("transfer_fee_basis_points").notNull(),
   maximumFee: text("maximum_fee").notNull(), // Store as string to preserve precision
   metadataUri: text("metadata_uri"),
+  targetMarketCap: text("target_market_cap"), // Target market cap as string to preserve precision
   creatorWalletAddress: text("creator_wallet_address")
     .notNull()
     .references(() => users.walletAddress),
@@ -48,6 +49,7 @@ export const groupChats = sqliteTable("group_chats", {
     .primaryKey()
     .references(() => tokens.tokenMintAddress), // Solana token mint address
   telegramChatId: text("telegram_chat_id").notNull().unique(), // Associated Telegram chat ID
+  telegramUsername: text("telegram_username"), // Telegram username for the chat
   tokenSymbol: text("token_symbol").notNull(),
   tokenName: text("token_name").notNull(),
   // Store potentially large/precise token amounts as text
