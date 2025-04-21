@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useWallet } from "@jup-ag/wallet-adapter";
 import { WalletButton } from "@workspace/ui/components";
