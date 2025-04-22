@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
-import { ArrowLeft, Copy, ExternalLink, MessageSquare } from "lucide-react";
+import { Copy, ExternalLink, MessageSquare } from "lucide-react";
 import Image from "next/image";
 
 interface TokenData {

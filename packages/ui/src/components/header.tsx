@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { NavMenu } from "./nav-menu";
 import { cn } from "@workspace/ui/lib/utils";
 
 interface HeaderProps {
   className?: string;
+  walletAuthComponent?: React.ReactNode;
 }
 
-export function Header({ className }: HeaderProps) {
+export function Header({ className, walletAuthComponent }: HeaderProps) {
   const [scrolled, setScrolled] = useState(false);
 
   // Handle scroll effect for transparent to solid background transition
@@ -49,32 +51,8 @@ export function Header({ className }: HeaderProps) {
           <NavMenu />
         </div>
 
-        {/* Mobile Menu Button - No wallet button here to avoid overlap with WalletAuth */}
-        <div className="flex items-center gap-2 md:hidden">
-          <button
-            className="p-2 text-white"
-            aria-label="Menu"
-            onClick={() => {
-              // Mobile menu toggle logic here
-              // For a real implementation, you'd want to show a mobile menu drawer
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              className="size-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-        </div>
+        {/* Wallet Auth Component Area */}
+        <div className="flex items-center">{walletAuthComponent}</div>
       </div>
     </header>
   );
