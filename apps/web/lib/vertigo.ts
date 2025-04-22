@@ -200,7 +200,6 @@ export async function buyTokens(
     const owner = new PublicKey(params.poolOwner);
     const mintA = new PublicKey(params.mintA);
     const mintB = new PublicKey(params.mintB);
-    const userAddress = new PublicKey(params.userAddress);
     const userTaA = new PublicKey(params.userTaA);
     const userTaB = new PublicKey(params.userTaB);
 

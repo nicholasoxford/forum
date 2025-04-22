@@ -4,7 +4,6 @@ import { tokens, users, groupChats } from "@/src/db/schema";
 import { createTelegramChannel } from "@/lib/telegram";
 import { createConnection, launchPool } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { getPayerKeypair } from "@/lib/keypair";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 /**
