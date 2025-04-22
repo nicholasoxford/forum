@@ -48,13 +48,9 @@ interface TokenData {
     };
   };
 }
-
-export default async function TokenPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const tokenId = params.id;
+export type paramsType = Promise<{ id: string }>;
+export default async function TokenPage({ params }: { params: paramsType }) {
+  const { id } = await params;
 
   try {
     // Get the API key from environment variables
@@ -75,7 +71,7 @@ export default async function TokenPage({
         id: "token-lookup",
         method: "getAsset",
         params: {
-          id: tokenId,
+          id: id,
           displayOptions: {
             showFungible: true,
           },
