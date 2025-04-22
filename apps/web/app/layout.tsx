@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "@workspace/ui/styles/globals.css";
 import { Providers } from "../components/providers";
-import { AuthDebugLink } from "./auth-debug/debug-link";
 import { CustomHeader } from "../components/custom-header";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -28,9 +27,7 @@ export default function RootLayout({
       >
         <Providers>
           <CustomHeader />
-          <div className="fixed bottom-4 right-4 z-50">
-            <AuthDebugLink />
-          </div>
+          <div className="fixed bottom-4 right-4 z-50"></div>
           {children}
         </Providers>
       </body>

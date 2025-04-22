@@ -52,13 +52,6 @@ export function Header({ className }: HeaderProps) {
           <NavMenu />
         </div>
 
-        {/* Wallet Connection Button (Show only if not connected on desktop) */}
-        <div className="hidden md:block">
-          {!connected && (
-            <WalletButton className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:shadow-lg border border-zinc-700 hover:border-violet-500/30" />
-          )}
-        </div>
-
         {/* Mobile Menu and Wallet Button */}
         <div className="flex items-center gap-2 md:hidden">
           <WalletButton className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-full text-xs font-medium border border-zinc-700" />

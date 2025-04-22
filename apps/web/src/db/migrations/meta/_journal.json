@@ -29,6 +29,13 @@
       "when": 1745253151110,
       "tag": "0003_goofy_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1745341289997,
+      "tag": "0004_aberrant_callisto",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/db";
-import { tokens, users, groupChats } from "@/src/db/schema";
+import { tokens, users, groupChats, pools } from "@/src/db/schema";
 import { createTelegramChannel } from "@/lib/telegram";
 import { createConnection, launchPool } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
@@ -144,10 +144,26 @@ export async function POST(request: NextRequest) {
     console.log("Pool launched successfully!");
     console.log(`Pool address: ${result.poolAddress}`);
     console.log(`Transaction: ${result.signature}`);
+
+    // Save pool information to the new pools table
+    await db.insert(pools).values({
+      poolAddress: result.poolAddress,
+      tokenMintAddress,
+      ownerAddress: walletKeypair.publicKey.toString(),
+      mintA: "So11111111111111111111111111111111111111112", // Native SOL mint
+      mintB: tokenMintAddress,
+      shift: DEFAULT_SHIFT.toString(),
+      initialTokenReserves: "1000",
+      royaltiesBps: DEFAULT_ROYALTIES_BPS,
+      transactionSignature: result.signature,
+    });
+
     return NextResponse.json({
       success: true,
       telegramChannelId,
       telegramUsername,
+      poolAddress: result.poolAddress,
+      transactionSignature: result.signature,
     });
   } catch (error: any) {
     console.error("[tokens POST]", error);

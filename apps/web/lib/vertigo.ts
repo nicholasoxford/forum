@@ -1,6 +1,12 @@
 import * as anchor from "@coral-xyz/anchor";
 import { BN } from "@coral-xyz/anchor";
 import {
+  createNoopSigner,
+  createUmi,
+  signerIdentity,
+  transactionBuilder,
+} from "@metaplex-foundation/umi";
+import {
   getOrCreateAssociatedTokenAccount,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
@@ -11,10 +17,18 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  TransactionInstruction,
 } from "@solana/web3.js";
-import { VertigoSDK } from "@vertigo-amm/vertigo-sdk";
+import { VertigoSDK } from "@vertigo-amm/vertigo-sdk/";
+import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
+import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
 import bs58 from "bs58";
-
+import {
+  fromWeb3JsInstruction,
+  fromWeb3JsPublicKey,
+  toWeb3JsKeypair,
+} from "@metaplex-foundation/umi-web3js-adapters";
+import { base64 } from "@metaplex-foundation/umi/serializers";
 // Configuration
 const VERTIGO_CONFIG = {
   FEE_WALLET: process.env.VERTIGO_SECRET_KEY || "",
@@ -105,7 +119,6 @@ export async function launchPool(
 ): Promise<{ signature: string; poolAddress: string; mintB: string }> {
   try {
     const vertigo = createVertigoSDK(connection);
-    console.log("BLOWS UP BEFORE THIS");
     const payer = getPayerKeypair();
 
     // Check if we're using an existing token
@@ -194,38 +207,57 @@ export async function buyTokens(
   params: BuyTokensParams
 ): Promise<string> {
   try {
-    const vertigo = createVertigoSDK(connection);
-
+    const umi = createUmi();
+    const provider = new anchor.AnchorProvider(
+      connection,
+      new anchor.Wallet(Keypair.generate()),
+      anchor.AnchorProvider.defaultOptions()
+    );
+    const program = new anchor.Program<Amm>(ammIdl, provider);
     // Convert string addresses to PublicKeys
     const owner = new PublicKey(params.poolOwner);
+    const user = new PublicKey(params.userAddress);
     const mintA = new PublicKey(params.mintA);
     const mintB = new PublicKey(params.mintB);
     const userTaA = new PublicKey(params.userTaA);
     const userTaB = new PublicKey(params.userTaB);
 
-    // Create user keypair (note: in a real implementation, this would come from a signature)
-    const user = Keypair.generate();
+    const buyIx = await program.methods
+      .buy(params)
+      .accounts({
+        owner,
+        user: user,
+        mintA,
+        mintB,
+        userTaA,
+        userTaB,
+        tokenProgramA: TOKEN_PROGRAM_ID,
+        tokenProgramB: TOKEN_2022_PROGRAM_ID,
+      })
+      .instruction();
 
-    // Convert amount to lamports
-    const amount = new BN(params.amount * LAMPORTS_PER_SOL);
-
-    // Execute the buy transaction
-    const signature = await vertigo.buy({
-      owner,
-      user,
-      mintA,
-      mintB,
-      userTaA,
-      userTaB,
-      tokenProgramA: TOKEN_PROGRAM_ID,
-      tokenProgramB: TOKEN_2022_PROGRAM_ID,
-      params: {
-        amount,
-        limit: new BN(0),
-      },
+    const tx = transactionBuilder();
+    const signer = createNoopSigner(fromWeb3JsPublicKey(user));
+    tx.add({
+      instruction: fromWeb3JsInstruction(buyIx),
+      signers: [signer],
+      bytesCreatedOnChain: 0,
     });
 
-    return signature;
+    umi.use(signerIdentity(signer));
+
+    const buyTx = await tx
+      .useV0()
+      .setBlockhash(await umi.rpc.getLatestBlockhash())
+      .buildAndSign(umi);
+
+    // Serialize the Transaction
+    const serializedBuyTx = umi.transactions.serialize(buyTx);
+
+    // Encode Uint8Array to String and Return the Transaction to the Frontend
+    const serializedBuyTxAsString = base64.deserialize(serializedBuyTx)[0];
+
+    return serializedBuyTxAsString;
   } catch (error: any) {
     console.error("Error buying tokens from Vertigo pool:", error);
     throw new Error(`Failed to buy tokens: ${error.message}`);

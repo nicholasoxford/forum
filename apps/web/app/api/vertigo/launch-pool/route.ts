@@ -24,7 +24,6 @@ const headers = {
 // Default pool settings
 const DEFAULT_SHIFT = 100; // 100 virtual SOL
 const DEFAULT_ROYALTIES_BPS = 100; // 1%
-const DECIMALS = 9; // Standard Solana token decimals
 
 // OPTIONS endpoint for CORS
 export const OPTIONS = async () => {

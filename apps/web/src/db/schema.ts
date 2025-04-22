@@ -42,6 +42,28 @@ export const tokens = sqliteTable("tokens", {
 export type InsertToken = typeof tokens.$inferInsert;
 export type SelectToken = typeof tokens.$inferSelect;
 
+// --- Pools ---
+// Represents Vertigo AMM pools for tokens
+export const pools = sqliteTable("pools", {
+  poolAddress: text("pool_address").primaryKey(), // Vertigo pool address
+  tokenMintAddress: text("token_mint_address")
+    .notNull()
+    .references(() => tokens.tokenMintAddress), // Associated token
+  ownerAddress: text("owner_address").notNull(), // Pool owner address
+  mintA: text("mint_a").notNull(), // Usually SOL mint
+  mintB: text("mint_b").notNull(), // Token mint (same as tokenMintAddress)
+  shift: text("shift").notNull(), // Virtual SOL amount
+  initialTokenReserves: text("initial_token_reserves").notNull(),
+  royaltiesBps: integer("royalties_bps"), // Royalty basis points
+  transactionSignature: text("transaction_signature"), // Creation transaction
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+});
+
+export type InsertPool = typeof pools.$inferInsert;
+export type SelectPool = typeof pools.$inferSelect;
+
 // --- GroupChats / Tokens ---
 // Represents the core entity: a token gating access to a specific group chat.
 export const groupChats = sqliteTable("group_chats", {

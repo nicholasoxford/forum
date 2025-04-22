@@ -6,7 +6,6 @@ import { Button } from "@workspace/ui/components/button";
 import { Card } from "@workspace/ui/components/card";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { WalletButton } from "@workspace/ui/components/wallet-connect/wallet-button";
 
 // Particles component - client-only
 const Particles = () => {

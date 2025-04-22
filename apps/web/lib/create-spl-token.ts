@@ -66,7 +66,6 @@ export async function createSplToken(
   umi.use(mplTokenMetadata());
 
   const mint = generateSigner(umi);
-  console.log(`New Mint Address: ${mint.publicKey}`);
 
   const mintAuthority = umi.identity;
   const transferFeeConfigAuthority =
@@ -93,9 +92,6 @@ export async function createSplToken(
   const metadataLen = pack(tokenMetadata).length;
   const totalSize = mintLen + TYPE_SIZE + LENGTH_SIZE + metadataLen;
   const rent = await umi.rpc.getRent(totalSize);
-
-  console.log("Required Mint Size: ", totalSize);
-  console.log("Rent Lamports: ", amountToNumber(rent));
 
   // Create transaction builder
   let tx = new TransactionBuilder();
@@ -183,57 +179,42 @@ export async function createSplToken(
 
   tx = tx.add({
     instruction: fromWeb3JsInstruction(initializeMetadata),
-    // Signers: Mint authority and Update authority (payer)
-    // Umi automatically adds payer and mintAuthority should already be umi.identity
-    // If mintAuthority were different, it and the update authority (payer) would need signing.
-    // Since mint is also a signer for the transaction itself, we add it here.
     signers: [umi.identity, mint],
     bytesCreatedOnChain: metadataLen, // Specify bytes for metadata packed into mint account
   });
 
-  // 6. Optional: Mint initial supply if amount is provided
-  if (config.initialMintAmount && config.initialMintAmount > 0n) {
-    console.log(
-      `Minting initial supply: ${config.initialMintAmount.toString()} lamports`
-    );
+  // Create and add ATA instruction
 
-    // Create and add ATA instruction
+  const destinationAccount = await getAssociatedTokenAddress(
+    toWeb3JsPublicKey(mint.publicKey),
+    toWeb3JsPublicKey(umi.identity.publicKey),
+    false,
+    TOKEN_2022_PROGRAM_ID
+  );
+  console.log("Destination Account: ", destinationAccount.toString());
+  tx = tx.add(
+    createAssociatedToken(umi, {
+      mint: mint.publicKey,
+      owner: umi.identity.publicKey,
+      tokenProgram: fromWeb3JsPublicKey(TOKEN_2022_PROGRAM_ID),
+    })
+  );
+  const mintV1Instruction = createMintToInstruction(
+    toWeb3JsPublicKey(mint.publicKey),
+    destinationAccount,
+    toWeb3JsPublicKey(mintAuthority.publicKey),
+    config.initialMintAmount ?? 0n,
+    [],
+    TOKEN_2022_PROGRAM_ID
+  );
 
-    const destinationAccount = await getAssociatedTokenAddress(
-      toWeb3JsPublicKey(mint.publicKey),
-      toWeb3JsPublicKey(umi.identity.publicKey),
-      false,
-      TOKEN_2022_PROGRAM_ID
-    );
-    console.log("Destination Account: ", destinationAccount.toString());
-    tx = tx.add(
-      createAssociatedToken(umi, {
-        mint: mint.publicKey,
-        owner: umi.identity.publicKey,
-        tokenProgram: fromWeb3JsPublicKey(TOKEN_2022_PROGRAM_ID),
-      })
-    );
-    const mintV1Instruction = createMintToInstruction(
-      toWeb3JsPublicKey(mint.publicKey),
-      destinationAccount,
-      toWeb3JsPublicKey(mintAuthority.publicKey),
-      config.initialMintAmount,
-      [],
-      TOKEN_2022_PROGRAM_ID
-    );
+  tx = tx.add({
+    instruction: fromWeb3JsInstruction(mintV1Instruction),
+    signers: [umi.identity, mint],
+    bytesCreatedOnChain: 0,
+  });
 
-    tx = tx.add({
-      instruction: fromWeb3JsInstruction(mintV1Instruction),
-      signers: [umi.identity, mint],
-      bytesCreatedOnChain: 0,
-    });
-  } else {
-    console.log("No initial mint amount specified, skipping mint.");
-  }
-
-  console.log("DOES IT FIT IN ONE TX2?: ", tx.fitsInOneTransaction(umi));
   // --- Build, Sign, and Send Transaction ---
-  console.log("Building and signing transaction...");
   tx = await tx.setLatestBlockhash(umi);
   tx = tx.setFeePayer(umi.identity);
   const builtTx = await tx.buildAndSign(umi);
@@ -241,7 +222,6 @@ export async function createSplToken(
   // Sign with the mint keypair
   const signedTransaction = await mint.signTransaction(builtTx);
 
-  console.log("Sending transaction...");
   const result = await umi.rpc.sendTransaction(signedTransaction, {
     skipPreflight: true, // Recommended for Token 2022 extension ixns
   });
