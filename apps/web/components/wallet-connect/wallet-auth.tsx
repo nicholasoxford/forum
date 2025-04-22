@@ -67,16 +67,16 @@ export const WalletAuth: FC = memo(() => {
 
   if (session && session.user) {
     return (
-      <div className="flex flex-col items-center gap-2">
-        <div className="text-sm">
-          Connected as:{" "}
-          <span className="font-mono">{session.user.name?.slice(0, 8)}...</span>
+      <div className="bg-black/70 backdrop-blur-sm p-2 rounded-lg shadow-md">
+        <div className="text-xs text-white text-center mb-1">
+          <span className="font-mono">{session.user.name?.slice(0, 6)}...</span>
         </div>
         <Button
           variant="destructive"
           size="sm"
           onClick={handleSignOut}
           disabled={isLoading}
+          className="h-8 px-3 py-0 text-xs"
         >
           Sign Out
         </Button>
@@ -89,8 +89,9 @@ export const WalletAuth: FC = memo(() => {
       onClick={handleSignIn}
       disabled={!publicKey || !signMessage || isLoading}
       size="sm"
+      className="h-8 px-3 py-0 text-xs bg-violet-600 hover:bg-violet-700"
     >
-      {isLoading ? "Signing in..." : "Sign in with Wallet"}
+      {isLoading ? "Signing in..." : "Sign in"}
     </Button>
   );
 });

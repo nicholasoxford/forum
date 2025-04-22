@@ -198,15 +198,17 @@ const HeroSection = () => {
                 <span className="absolute inset-0 bg-gradient-to-r from-violet-600 to-violet-500 opacity-0 group-hover:opacity-100 transition-opacity"></span>
               </Button>
             </Link>
-            <Button
-              variant="outline"
-              size="lg"
-              className="border-zinc-700 bg-black/40 hover:bg-black/60 text-zinc-200 px-8 py-6 text-lg font-medium transition-all duration-300 hover:border-violet-500/50 group"
-            >
-              <span className="group-hover:text-violet-300 transition-colors">
-                Explore Communities
-              </span>
-            </Button>
+            <Link href="/tokens">
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-zinc-700 bg-black/40 hover:bg-black/60 text-zinc-200 px-8 py-6 text-lg font-medium transition-all duration-300 hover:border-violet-500/50 group"
+              >
+                <span className="group-hover:text-violet-300 transition-colors">
+                  Explore Communities
+                </span>
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -441,24 +443,26 @@ export default function Home() {
 
               {/* Hover-visible join button - visible by default on mobile */}
               <div className="absolute inset-x-0 bottom-0 h-12 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center md:translate-y-4 md:group-hover:translate-y-0 duration-300">
-                <button className="bg-violet-500/20 hover:bg-violet-500/40 text-violet-400 hover:text-violet-300 w-full py-2 rounded-b-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                  <span>Join Community</span>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M7 17L17 7M17 7H7M17 7V17"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
+                <Link href="/buy-token">
+                  <button className="bg-violet-500/20 hover:bg-violet-500/40 text-violet-400 hover:text-violet-300 w-full py-2 rounded-b-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                    <span>Join Community</span>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M7 17L17 7M17 7H7M17 7V17"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </Link>
               </div>
             </Card>
           ))}
@@ -731,18 +735,18 @@ export default function Home() {
                 <p className="font-semibold text-zinc-900 dark:text-white">
                   Platform
                 </p>
-                <a
-                  href="#"
+                <Link
+                  href="/tokens"
                   className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-violet-500 dark:hover:text-violet-400 transition-colors"
                 >
-                  About
-                </a>
-                <a
-                  href="#"
+                  All Tokens
+                </Link>
+                <Link
+                  href="/buy-token"
                   className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-violet-500 dark:hover:text-violet-400 transition-colors"
                 >
-                  Features
-                </a>
+                  Buy Tokens
+                </Link>
                 <a
                   href="#"
                   className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-violet-500 dark:hover:text-violet-400 transition-colors"

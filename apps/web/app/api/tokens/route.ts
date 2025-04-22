@@ -5,6 +5,7 @@ import { createTelegramChannel } from "@/lib/telegram";
 import { createConnection, launchPool } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { eq } from "drizzle-orm";
 
 /**
  * POST /api/tokens
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       );
       telegramChannelId = channelId;
       telegramUsername = username;
-
+      console.log("ARE WE HERE?");
       // Persist channel info in group_chats table with requiredHoldings from input or default "0"
       await db.insert(groupChats).values({
         tokenMintAddress,
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
         requiredHoldings: requiredHoldings || "0", // Use provided value or default
         creatorWalletAddress,
       });
+      console.log("POST INSERT?");
     } catch (tgError) {
       console.error("Failed to create Telegram channel", tgError);
       // Not fatal for token creation; continue.
@@ -113,11 +115,13 @@ export async function POST(request: NextRequest) {
     const walletKeypair = Keypair.fromSecretKey(
       bs58.decode(process.env.VERTIGO_SECRET_KEY!)
     );
+    console.log("ABOUT TO CREATE CONNECTION");
     const connection = await createConnection();
     // Default pool settings
     const DEFAULT_SHIFT = 100; // 100 virtual SOL
     const DEFAULT_ROYALTIES_BPS = 100; // 1%
     const OWNER_ADDRESS = "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz";
+    console.log("ABOUT TO LAUNCH POOL");
     const result = await launchPool(connection, {
       tokenName,
       tokenSymbol,
@@ -167,6 +171,61 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("[tokens POST]", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error?.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * GET /api/tokens
+ *
+ * Returns all tokens with their relevant pool information
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // Query all tokens and join with their respective pools
+    const allTokens = await db
+      .select({
+        token: tokens,
+        pool: pools,
+      })
+      .from(tokens)
+      .leftJoin(pools, eq(tokens.tokenMintAddress, pools.tokenMintAddress));
+
+    // Format the response
+    const formattedTokens = allTokens.map(({ token, pool }) => ({
+      // Token info
+      tokenMintAddress: token.tokenMintAddress,
+      tokenName: token.tokenName,
+      tokenSymbol: token.tokenSymbol,
+      decimals: token.decimals,
+      transferFeeBasisPoints: token.transferFeeBasisPoints,
+      metadataUri: token.metadataUri,
+      creatorWalletAddress: token.creatorWalletAddress,
+      createdAt: token.createdAt,
+
+      // Pool info
+      pool: pool
+        ? {
+            poolAddress: pool.poolAddress,
+            ownerAddress: pool.ownerAddress,
+            mintA: pool.mintA,
+            mintB: pool.mintB,
+            shift: pool.shift,
+            initialTokenReserves: pool.initialTokenReserves,
+            royaltiesBps: pool.royaltiesBps,
+          }
+        : null,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      tokens: formattedTokens,
+    });
+  } catch (error: any) {
+    console.error("[tokens GET]", error);
     return NextResponse.json(
       { error: "Internal Server Error", message: error?.message },
       { status: 500 }

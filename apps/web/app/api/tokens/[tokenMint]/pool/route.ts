@@ -10,10 +10,10 @@ import { eq } from "drizzle-orm";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tokenMint: string } }
+  { params }: { params: Promise<{ tokenMint: string }> }
 ) {
   try {
-    const tokenMint = params.tokenMint;
+    const { tokenMint } = await params;
 
     if (!tokenMint) {
       return NextResponse.json(
@@ -36,13 +36,6 @@ export async function GET(
       where: eq(pools.tokenMintAddress, tokenMint),
     });
 
-    if (!pool) {
-      return NextResponse.json(
-        { error: "Pool not found for this token" },
-        { status: 404 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
       token: {
@@ -50,16 +43,26 @@ export async function GET(
         tokenSymbol: token.tokenSymbol,
         tokenName: token.tokenName,
         decimals: token.decimals,
+        transferFeeBasisPoints: token.transferFeeBasisPoints,
+        maximumFee: token.maximumFee,
+        metadataUri: token.metadataUri,
+        targetMarketCap: token.targetMarketCap,
+        creatorWalletAddress: token.creatorWalletAddress,
+        createdAt: token.createdAt,
       },
-      pool: {
-        poolAddress: pool.poolAddress,
-        ownerAddress: pool.ownerAddress,
-        mintA: pool.mintA,
-        mintB: pool.mintB,
-        shift: pool.shift,
-        initialTokenReserves: pool.initialTokenReserves,
-        royaltiesBps: pool.royaltiesBps,
-      },
+      pool: pool
+        ? {
+            poolAddress: pool.poolAddress,
+            ownerAddress: pool.ownerAddress,
+            mintA: pool.mintA,
+            mintB: pool.mintB,
+            shift: pool.shift,
+            initialTokenReserves: pool.initialTokenReserves,
+            royaltiesBps: pool.royaltiesBps,
+            transactionSignature: pool.transactionSignature,
+            createdAt: pool.createdAt,
+          }
+        : null,
     });
   } catch (error: any) {
     console.error("[tokens/[tokenMint]/pool GET]", error);

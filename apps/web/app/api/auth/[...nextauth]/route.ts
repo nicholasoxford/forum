@@ -156,7 +156,6 @@ const handler = NextAuth({
   ],
   callbacks: {
     async session({ session, token }) {
-      // @ts-ignore
       session.publicKey = token.sub;
       if (session.user) {
         session.user.name = token.sub;

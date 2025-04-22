@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useWallet } from "@jup-ag/wallet-adapter";
 import { NavMenu } from "./nav-menu";
-import { WalletButton } from "./wallet-connect/wallet-button";
 import { cn } from "@workspace/ui/lib/utils";
 
 interface HeaderProps {
@@ -12,7 +10,6 @@ interface HeaderProps {
 }
 
 export function Header({ className }: HeaderProps) {
-  const { connected } = useWallet();
   const [scrolled, setScrolled] = useState(false);
 
   // Handle scroll effect for transparent to solid background transition
@@ -31,7 +28,7 @@ export function Header({ className }: HeaderProps) {
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 px-4 py-4 md:px-6",
+        "fixed top-0 left-0 right-0 z-40 transition-all duration-300 px-4 py-4 md:px-6",
         scrolled
           ? "bg-black/90 backdrop-blur-md border-b border-zinc-800 shadow-md"
           : "bg-transparent",
@@ -52,9 +49,8 @@ export function Header({ className }: HeaderProps) {
           <NavMenu />
         </div>
 
-        {/* Mobile Menu and Wallet Button */}
+        {/* Mobile Menu Button - No wallet button here to avoid overlap with WalletAuth */}
         <div className="flex items-center gap-2 md:hidden">
-          <WalletButton className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-full text-xs font-medium border border-zinc-700" />
           <button
             className="p-2 text-white"
             aria-label="Menu"

@@ -2,10 +2,10 @@ import * as anchor from "@coral-xyz/anchor";
 import { BN } from "@coral-xyz/anchor";
 import {
   createNoopSigner,
-  createUmi,
   signerIdentity,
   transactionBuilder,
 } from "@metaplex-foundation/umi";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import {
   getOrCreateAssociatedTokenAccount,
   NATIVE_MINT,
@@ -17,7 +17,6 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
-  TransactionInstruction,
 } from "@solana/web3.js";
 import { VertigoSDK } from "@vertigo-amm/vertigo-sdk/";
 import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
@@ -26,7 +25,6 @@ import bs58 from "bs58";
 import {
   fromWeb3JsInstruction,
   fromWeb3JsPublicKey,
-  toWeb3JsKeypair,
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { base64 } from "@metaplex-foundation/umi/serializers";
 // Configuration
@@ -90,7 +88,7 @@ export interface ClaimRoyaltiesParams {
 }
 
 // Helper function to get payer keypair
-function getPayerKeypair(): Keypair {
+export function getPayerKeypair(): Keypair {
   if (!VERTIGO_CONFIG.PAYER_PRIVATE_KEY) {
     throw new Error("PAYER_PRIVATE_KEY is not set");
   }
@@ -118,6 +116,7 @@ export async function launchPool(
   params: LaunchPoolParams
 ): Promise<{ signature: string; poolAddress: string; mintB: string }> {
   try {
+    console.log("ABOUT TO CREATE VERTIGO SDK");
     const vertigo = createVertigoSDK(connection);
     const payer = getPayerKeypair();
 
@@ -126,7 +125,7 @@ export async function launchPool(
     if (!mintB) {
       throw new Error("MintB and tokenWallet must be provided");
     }
-
+    console.log("ABOUT TO GET OR CREATE ASSOCIATED TOKEN ACCOUNT");
     const tokenWallet = await getOrCreateAssociatedTokenAccount(
       connection,
       payer,
@@ -207,26 +206,74 @@ export async function buyTokens(
   params: BuyTokensParams
 ): Promise<string> {
   try {
-    const umi = createUmi();
-    const provider = new anchor.AnchorProvider(
-      connection,
-      new anchor.Wallet(Keypair.generate()),
-      anchor.AnchorProvider.defaultOptions()
-    );
-    const program = new anchor.Program<Amm>(ammIdl, provider);
+    const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
+    const umi = createUmi(RPC_URL, "confirmed");
+
+    // Note: VertigoSDK might need a signer wallet for quoteBuy,
+    // using a dummy wallet here as quote doesn't require signing.
+    // For the actual buy tx, the frontend user signs.
+    const dummyPayer = Keypair.generate();
+    const dummyWallet = new anchor.Wallet(dummyPayer);
+    const vertigo = new VertigoSDK(connection, dummyWallet);
+
     // Convert string addresses to PublicKeys
     const owner = new PublicKey(params.poolOwner);
-    const user = new PublicKey(params.userAddress);
     const mintA = new PublicKey(params.mintA);
     const mintB = new PublicKey(params.mintB);
     const userTaA = new PublicKey(params.userTaA);
     const userTaB = new PublicKey(params.userTaB);
 
+    const amountLamports = new BN(params.amount * LAMPORTS_PER_SOL); // Use LAMPORTS_PER_SOL
+    const slippageBps = params.slippageBps || 100; // Default to 1% (100 bps)
+
+    console.log(
+      `Fetching quote for buying with ${params.amount} SOL (${amountLamports.toString()} lamports)`
+    );
+    console.log({
+      mintA: mintA.toString(),
+      mintB: mintB.toString(),
+      user: owner.toString(),
+      owner: owner.toString(),
+      amount: amountLamports.toString(),
+    });
+    // Fetch a buy quote
+    const quote = await vertigo.quoteBuy({
+      params: {
+        amount: new BN(5), // Amount of SOL (Mint A) to spend
+        limit: new anchor.BN(0), // Limit for quote doesn't matter here
+      },
+      user: owner, // User making the potential buy
+      owner: owner, // Pool owner
+      mintA: mintB, // SOL mint
+      mintB: mintA, // Token mint
+    });
+
+    console.log(`Quote received: ${quote.amountB.toString()} of token B`);
+    console.log(`Fee quote: ${quote.feeA.toString()} lamports`);
+
+    // Calculate the minimum acceptable amount B based on quote and slippage
+    // slippageBps is in basis points (1% = 100 bps)
+    const slippageFactor = new BN(10000).sub(new BN(slippageBps)); // e.g., 10000 - 100 = 9900 for 1% slippage
+    const limitAmountB = quote.amountB.mul(slippageFactor).div(new BN(10000));
+
+    console.log(`Calculated limit (min amount B): ${limitAmountB.toString()}`);
+
+    // Prepare the buy instruction using the Anchor program directly
+    // (as the original code did, avoids needing VertigoSDK signer for user tx)
+    const provider = new anchor.AnchorProvider(
+      connection,
+      dummyWallet, // Use dummy wallet for provider, signing happens on frontend
+      anchor.AnchorProvider.defaultOptions()
+    );
+    const program = new anchor.Program<Amm>(ammIdl as Amm, provider);
+
+    const buyParams = { amount: amountLamports, limit: limitAmountB };
+    console.log("Creating buy instruction with params:", buyParams);
     const buyIx = await program.methods
-      .buy(params)
+      .buy(buyParams)
       .accounts({
         owner,
-        user: user,
+        user: owner, // The actual user's public key
         mintA,
         mintB,
         userTaA,
@@ -236,30 +283,36 @@ export async function buyTokens(
       })
       .instruction();
 
-    const tx = transactionBuilder();
-    const signer = createNoopSigner(fromWeb3JsPublicKey(user));
-    tx.add({
+    // Build and serialize transaction using UMI
+    let tx = transactionBuilder();
+    const signer = createNoopSigner(
+      fromWeb3JsPublicKey(new PublicKey(params.userAddress))
+    ); // User signs on frontend
+    tx = tx.add({
       instruction: fromWeb3JsInstruction(buyIx),
       signers: [signer],
       bytesCreatedOnChain: 0,
     });
 
-    umi.use(signerIdentity(signer));
-
+    umi.use(signerIdentity(signer)); // Umi needs identity, even if noop for building
+    console.log("Building and signing transaction (client-side simulation)...");
     const buyTx = await tx
       .useV0()
       .setBlockhash(await umi.rpc.getLatestBlockhash())
-      .buildAndSign(umi);
+      .buildAndSign(umi); // Note: 'sign' here uses the NoopSigner
 
-    // Serialize the Transaction
+    console.log("Serializing transaction...");
     const serializedBuyTx = umi.transactions.serialize(buyTx);
-
-    // Encode Uint8Array to String and Return the Transaction to the Frontend
     const serializedBuyTxAsString = base64.deserialize(serializedBuyTx)[0];
 
+    console.log("Returning serialized transaction.");
     return serializedBuyTxAsString;
   } catch (error: any) {
     console.error("Error buying tokens from Vertigo pool:", error);
+    // Log specific details if available
+    if (error.logs) {
+      console.error("Transaction Logs:", error.logs);
+    }
     throw new Error(`Failed to buy tokens: ${error.message}`);
   }
 }

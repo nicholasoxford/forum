@@ -23,12 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.className} ${spaceGrotesk.variable} token-flow-bg`}
+        className={`${inter.className} ${spaceGrotesk.variable} token-flow-bg min-h-screen`}
       >
         <Providers>
           <CustomHeader />
-          <div className="fixed bottom-4 right-4 z-50"></div>
-          {children}
+          <main className="pt-16">{children}</main>
         </Providers>
       </body>
     </html>
