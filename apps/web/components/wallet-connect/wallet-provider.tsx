@@ -1,17 +1,18 @@
 "use client";
 
-import { FC, ReactNode, useMemo } from "react";
+import { FC, ReactNode, useMemo, memo } from "react";
 import { UnifiedWalletProvider } from "@jup-ag/wallet-adapter";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { CoinbaseWalletAdapter } from "@solana/wallet-adapter-coinbase";
 import { TrustWalletAdapter } from "@solana/wallet-adapter-trust";
+import { type Cluster } from "@solana/web3.js";
 
 interface WalletProviderProps {
   children: ReactNode;
 }
 
-export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
+export const WalletProvider: FC<WalletProviderProps> = memo(({ children }) => {
   const wallets = useMemo(() => {
     return [
       new PhantomWalletAdapter(),
@@ -21,12 +22,11 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
     ];
   }, []);
 
-  return (
-    <UnifiedWalletProvider
-      wallets={wallets}
-      config={{
+  const config = useMemo(
+    () =>
+      ({
         autoConnect: true,
-        env: "mainnet-beta",
+        env: "mainnet-beta" as Cluster,
         metadata: {
           name: "Token Rewards Platform",
           description:
@@ -35,21 +35,17 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
           iconUrls: ["https://your-app-icon-url.com/favicon.ico"],
         },
         notificationCallback: {
-          onConnect: (props) => {
+          onConnect: (props: any) => {
             console.log("Wallet connected:", props);
-            // You can add toast notifications or other UI feedback here
           },
-          onConnecting: (props) => {
+          onConnecting: (props: any) => {
             console.log("Connecting to wallet:", props);
-            // You can add loading indicators or other UI feedback here
           },
-          onDisconnect: (props) => {
+          onDisconnect: (props: any) => {
             console.log("Wallet disconnected:", props);
-            // You can add toast notifications or other UI feedback here
           },
-          onNotInstalled: (props) => {
+          onNotInstalled: (props: any) => {
             console.log("Wallet not installed:", props);
-            // You can add UI feedback to prompt the user to install the wallet
           },
         },
         walletlistExplanation: {
@@ -57,9 +53,15 @@ export const WalletProvider: FC<WalletProviderProps> = ({ children }) => {
         },
         theme: "dark",
         lang: "en",
-      }}
-    >
+      }) as any,
+    []
+  );
+
+  return (
+    <UnifiedWalletProvider wallets={wallets} config={config}>
       {children}
     </UnifiedWalletProvider>
   );
-};
+});
+
+WalletProvider.displayName = "WalletProvider";
