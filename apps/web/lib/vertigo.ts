@@ -1,10 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { BN } from "@coral-xyz/anchor";
-import NodeWallet from "@coral-xyz/anchor/dist/cjs/nodewallet";
 import {
-  createAssociatedTokenAccount,
-  createMint,
-  mintTo,
+  getOrCreateAssociatedTokenAccount,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -42,10 +39,10 @@ export interface LaunchPoolParams {
   tokenImage?: string;
   poolParams: PoolParams;
   ownerAddress: string;
-  existingToken?: {
+  existingToken: {
     mintB: PublicKey;
     tokenWallet: PublicKey;
-    walletAuthority?: Keypair;
+    walletAuthority: Keypair;
   };
 }
 
@@ -110,76 +107,35 @@ export async function launchPool(
     const vertigo = createVertigoSDK(connection);
     console.log("BLOWS UP BEFORE THIS");
     const payer = getPayerKeypair();
-    // Generate keypairs for the pool
-    const owner = Keypair.fromSecretKey(payer.secretKey);
 
-    let mintB: PublicKey;
-    let tokenWallet: PublicKey;
-    let tokenWalletAuthority: Keypair;
     // Check if we're using an existing token
-    if (params.existingToken) {
-      mintB = params.existingToken.mintB;
-      tokenWallet = params.existingToken.tokenWallet;
-      // Use provided wallet authority or generate a new one
-      tokenWalletAuthority =
-        params.existingToken.walletAuthority || Keypair.generate();
-    } else {
-      // Proceed with the normal token creation flow
-      tokenWalletAuthority = Keypair.generate();
-      const mintAuthority = Keypair.generate();
-      const mint = Keypair.generate();
-
-      // Create the custom token (mintB)
-      const decimals = params.poolParams.decimals;
-      mintB = await createMint(
-        connection,
-        payer,
-        mintAuthority.publicKey,
-        null, // No freeze authority
-        decimals,
-        mint,
-        undefined,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      // Create the token wallet for the mint
-      tokenWallet = await createAssociatedTokenAccount(
-        connection,
-        payer,
-        mint.publicKey,
-        tokenWalletAuthority.publicKey,
-        undefined,
-        TOKEN_2022_PROGRAM_ID
-      );
-
-      // Mint tokens to the wallet
-      const initialTokenReserves = params.poolParams.initialTokenReserves;
-      await mintTo(
-        connection,
-        payer,
-        mint.publicKey,
-        tokenWallet,
-        mintAuthority.publicKey,
-        initialTokenReserves * Math.pow(10, decimals),
-        [mintAuthority],
-        undefined,
-        TOKEN_2022_PROGRAM_ID
-      );
+    const mintB = params.existingToken?.mintB;
+    if (!mintB) {
+      throw new Error("MintB and tokenWallet must be provided");
     }
 
+    const tokenWallet = await getOrCreateAssociatedTokenAccount(
+      connection,
+      payer,
+      mintB,
+      payer.publicKey,
+      false,
+      "confirmed",
+      { commitment: "confirmed" },
+      TOKEN_2022_PROGRAM_ID
+    );
+    console.log("TOKEN ACCOUNT", tokenWallet.address.toString());
+    // Use provided wallet authority or generate a new one
+    const tokenWalletAuthority = params.existingToken.walletAuthority;
     // Get token decimals from the blockchain if using an existing token
-    const decimals = params.existingToken
-      ? (await connection.getTokenSupply(mintB)).value.decimals
-      : params.poolParams.decimals;
+    const decimals = 6;
 
     // Prepare pool parameters in the format Vertigo SDK expects
     const poolParams = {
       shift: new BN(LAMPORTS_PER_SOL).muln(params.poolParams.shift),
-      initialTokenBReserves: params.existingToken
-        ? await getTokenWalletBalance(connection, tokenWallet, decimals)
-        : new BN(params.poolParams.initialTokenReserves).muln(
-            Math.pow(10, decimals)
-          ),
+      initialTokenBReserves: new BN(
+        params.poolParams.initialTokenReserves * 10 ** decimals
+      ),
       feeParams: {
         normalizationPeriod: new BN(
           params.poolParams.feeParams.normalizationPeriod
@@ -207,12 +163,12 @@ export async function launchPool(
       },
 
       // Authority configuration
-      payer: owner,
-      owner,
+      payer: payer,
+      owner: payer,
       tokenWalletAuthority,
 
       // Token configuration
-      tokenWalletB: tokenWallet,
+      tokenWalletB: tokenWallet.address,
       mintA: NATIVE_MINT,
       mintB,
       tokenProgramA: TOKEN_PROGRAM_ID,
@@ -227,22 +183,6 @@ export async function launchPool(
   } catch (error: any) {
     console.error("Error launching Vertigo pool:", error);
     throw new Error(`Failed to launch pool: ${error.message}`);
-  }
-}
-
-// Helper function to get token wallet balance in the correct format for Vertigo SDK
-async function getTokenWalletBalance(
-  connection: Connection,
-  tokenWallet: PublicKey,
-  decimals: number
-): Promise<BN> {
-  try {
-    const tokenAmount = await connection.getTokenAccountBalance(tokenWallet);
-    return new BN(tokenAmount.value.amount);
-  } catch (error) {
-    console.error("Error getting token balance:", error);
-    // Return a default value if we can't get the balance
-    return new BN(1_000_000_000).muln(Math.pow(10, decimals));
   }
 }
 
@@ -379,7 +319,10 @@ export async function claimRoyalties(
 
 // Helper function to create a connection
 export async function createConnection(): Promise<Connection> {
-  return new Connection(process.env.RPC_URL || "https://api.devnet.solana.com");
+  return new Connection(
+    process.env.RPC_URL || "https://api.devnet.solana.com",
+    "confirmed"
+  );
   // return new Connection(
   //   process.env.RPC_URL || 'https://api.mainnet-beta.solana.com'
   // )

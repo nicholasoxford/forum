@@ -1,5 +1,5 @@
 // Token mint address
-const TOKEN_MINT = "B4uej9snPcJyA3ZEMF6mrHAVqjB91A7gyhSCG2EK6vds";
+const TOKEN_MINT = "6oVKCciZhzj54JTx2wv1T58B1ysfeL3Cf5o52yroEeoF";
 // Token wallet address
 const TOKEN_WALLET = "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz";
 // Owner address

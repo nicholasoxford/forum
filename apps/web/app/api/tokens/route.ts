@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/db";
 import { tokens, users, groupChats } from "@/src/db/schema";
-import { sql } from "drizzle-orm";
 import { createTelegramChannel } from "@/lib/telegram";
+import { createConnection, launchPool } from "@/lib/vertigo";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { getPayerKeypair } from "@/lib/keypair";
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 /**
  * POST /api/tokens
@@ -107,7 +110,41 @@ export async function POST(request: NextRequest) {
       console.error("Failed to create Telegram channel", tgError);
       // Not fatal for token creation; continue.
     }
-
+    // Load wallet keypair from local file
+    const walletKeypair = Keypair.fromSecretKey(
+      bs58.decode(process.env.VERTIGO_SECRET_KEY!)
+    );
+    const connection = await createConnection();
+    // Default pool settings
+    const DEFAULT_SHIFT = 100; // 100 virtual SOL
+    const DEFAULT_ROYALTIES_BPS = 100; // 1%
+    const OWNER_ADDRESS = "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz";
+    const result = await launchPool(connection, {
+      tokenName,
+      tokenSymbol,
+      poolParams: {
+        shift: DEFAULT_SHIFT,
+        // These parameters need to be set but will be fetched from the blockchain for existing tokens
+        initialTokenReserves: 1_000,
+        decimals: 6,
+        feeParams: {
+          normalizationPeriod: 20,
+          decay: 10,
+          royaltiesBps: DEFAULT_ROYALTIES_BPS,
+          feeExemptBuys: 1,
+        },
+      },
+      ownerAddress: walletKeypair.publicKey.toString(),
+      existingToken: {
+        mintB: new PublicKey(tokenMintAddress),
+        tokenWallet: new PublicKey(OWNER_ADDRESS),
+        // Use the loaded wallet keypair as the authority since it likely owns the token account
+        walletAuthority: walletKeypair,
+      },
+    });
+    console.log("Pool launched successfully!");
+    console.log(`Pool address: ${result.poolAddress}`);
+    console.log(`Transaction: ${result.signature}`);
     return NextResponse.json({
       success: true,
       telegramChannelId,

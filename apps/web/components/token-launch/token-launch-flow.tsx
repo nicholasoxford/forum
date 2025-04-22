@@ -6,14 +6,13 @@ import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { Card, CardContent } from "@workspace/ui/components/card";
 import { createSplToken, SplTokenConfig } from "@/lib/create-spl-token";
 import { toast } from "sonner";
-import { WalletButton } from "@workspace/ui/components";
 import { useUmi } from "@/lib/umi";
-import { ChevronRight, Loader2, Check, ArrowRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { TokenBasicInfo } from "./token-basic-info";
 import { TokenEconomics } from "./token-economics";
 import { TokenSuccess } from "./token-success";
 
-const DEFAULT_DECIMALS = 9;
+const DEFAULT_DECIMALS = 6;
 const DEFAULT_FEE_BASIS_POINTS = 100; // 1%
 const DEFAULT_MAX_FEE = 1_000_000_000n * 1_000_000_000n;
 const ONE_BILLION = 1_000_000_000;

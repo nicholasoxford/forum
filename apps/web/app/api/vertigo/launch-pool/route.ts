@@ -4,10 +4,9 @@ import {
   ACTIONS_CORS_HEADERS,
   BLOCKCHAIN_IDS,
 } from "@solana/actions";
-import { Keypair, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { NextRequest } from "next/server";
 import bs58 from "bs58";
-import * as anchor from "@coral-xyz/anchor";
 
 // Set blockchain (mainnet or devnet)
 const blockchain =
@@ -105,18 +104,15 @@ export async function POST(req: NextRequest) {
     const tokenWallet = url.searchParams.get("tokenWallet");
     const tokenName = url.searchParams.get("tokenName");
     const tokenSymbol = url.searchParams.get("tokenSymbol");
-    const initialTokenBReserves = new anchor.BN("1000000000000000000");
 
     // Get optional parameters or use defaults
     const shift = Number(url.searchParams.get("shift")) || DEFAULT_SHIFT;
     const royaltiesBps =
       Number(url.searchParams.get("royaltiesBps")) || DEFAULT_ROYALTIES_BPS;
-    const tokenImage = url.searchParams.get("tokenImage") || undefined;
 
     // Get user public key from request body
     const requestBody = await req.json();
     const ownerAddress = requestBody.account;
-    console.log("Owner address: ", ownerAddress);
 
     // Validate required parameters
     if (!mintB || !tokenWallet || !tokenName || !tokenSymbol || !ownerAddress) {
@@ -128,7 +124,6 @@ export async function POST(req: NextRequest) {
 
     // Set up the connection
     const connection = await createConnection();
-    console.log("CONNECTION GOT");
     // Check that the mint and token wallet exist
     try {
       // Check that the mint exists
@@ -146,7 +141,6 @@ export async function POST(req: NextRequest) {
       const walletInfo = await connection.getAccountInfo(
         new PublicKey(tokenWallet)
       );
-      console.log("WALLET INFO GOT");
       if (!walletInfo) {
         return new Response(
           JSON.stringify({
@@ -167,25 +161,14 @@ export async function POST(req: NextRequest) {
       bs58.decode(process.env.VERTIGO_SECRET_KEY!)
     );
 
-    // Launch the pool using our extracted hook
-    console.log(`Launching pool for token ${tokenName} (${tokenSymbol})...`);
-    console.log(`Using mint: ${mintB}`);
-    console.log(`Using wallet: ${tokenWallet}`);
-    console.log(`Using owner address: ${ownerAddress}`);
-
-    // For existing token pools, we need to use the wallet keypair as the wallet authority
-    // since the error shows "owner does not match"
-    console.log("About to launch pool...");
-
     const result = await launchPool(connection, {
       tokenName,
       tokenSymbol,
-      tokenImage: tokenImage,
       poolParams: {
         shift,
         // These parameters need to be set but will be fetched from the blockchain for existing tokens
-        initialTokenReserves: 0,
-        decimals: 0,
+        initialTokenReserves: 1_000_000,
+        decimals: 6,
         feeParams: {
           normalizationPeriod: 20,
           decay: 10,

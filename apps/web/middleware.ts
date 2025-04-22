@@ -10,20 +10,35 @@ const protectedRoutes = [
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
+  console.log("Middleware checking path:", path);
 
   // Check if the current path is a protected route
-  if (protectedRoutes.some((route) => path.startsWith(route))) {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
+  const isProtected = protectedRoutes.some((route) => path.startsWith(route));
+  console.log("Is protected route:", isProtected);
+
+  if (isProtected) {
+    console.log("Checking auth session for protected route");
+
+    // Check for auth session cookie instead of decoding JWT
+    const sessionCookie =
+      req.cookies.get("next-auth.session-token") ||
+      req.cookies.get("__Secure-next-auth.session-token");
+
+    const isAuthenticated = !!sessionCookie;
+    console.log(
+      "Auth session status:",
+      isAuthenticated ? "found" : "not found"
+    );
 
     // If user is not authenticated, redirect to home page
-    if (!token) {
+    if (!isAuthenticated) {
+      console.log("User not authenticated, redirecting to home page");
       const url = new URL("/", req.url);
       url.searchParams.set("callbackUrl", path);
       return NextResponse.redirect(url);
     }
+
+    console.log("User authenticated, allowing access to protected route");
   }
 
   return NextResponse.next();

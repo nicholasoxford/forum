@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "@workspace/ui/styles/globals.css";
-import { WalletProvider } from "../components/wallet-connect/wallet-provider";
-import { Header } from "@workspace/ui/components/header";
+import { Providers } from "../components/providers";
+import { AuthDebugLink } from "./auth-debug/debug-link";
+import { CustomHeader } from "../components/custom-header";
 
 const inter = Inter({ subsets: ["latin"] });
 const spaceGrotesk = Space_Grotesk({
@@ -25,10 +26,13 @@ export default function RootLayout({
       <body
         className={`${inter.className} ${spaceGrotesk.variable} token-flow-bg`}
       >
-        <WalletProvider>
-          <Header />
+        <Providers>
+          <CustomHeader />
+          <div className="fixed bottom-4 right-4 z-50">
+            <AuthDebugLink />
+          </div>
           {children}
-        </WalletProvider>
+        </Providers>
       </body>
     </html>
   );
