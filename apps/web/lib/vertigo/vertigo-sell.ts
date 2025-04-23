@@ -11,6 +11,8 @@ import {
   TOKEN_PROGRAM_ID,
   getOrCreateAssociatedTokenAccount,
   NATIVE_MINT,
+  createCloseAccountInstruction,
+  getAssociatedTokenAddress,
 } from "@solana/spl-token";
 import { Connection, PublicKey } from "@solana/web3.js";
 import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
@@ -22,6 +24,37 @@ import {
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { SellTokensParams } from "@/types/vertigo";
 import { getPayerKeypair } from ".";
+
+/**
+ * Creates instruction to unwrap wSOL to SOL
+ * @param userPublicKey The user's public key
+ * @returns Instruction to close the wSOL account
+ */
+async function createUnwrapSolInstruction(userPublicKey: PublicKey) {
+  try {
+    // Get the associated token account for wSOL
+    const userWsolAta = await getAssociatedTokenAddress(
+      NATIVE_MINT,
+      userPublicKey,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    // Create instruction to close the wSOL account
+    return createCloseAccountInstruction(
+      userWsolAta, // Token account to close
+      userPublicKey, // Destination account (receives SOL)
+      userPublicKey, // Owner of token account
+      [], // Additional signers (none needed)
+      TOKEN_PROGRAM_ID // Token program ID
+    );
+  } catch (error: any) {
+    console.error("Error creating unwrap SOL instruction:", error);
+    throw new Error(
+      `Failed to create unwrap SOL instruction: ${error.message}`
+    );
+  }
+}
 
 /**
  * Sell tokens to a Vertigo pool
@@ -170,6 +203,39 @@ export async function sellTokens(
         signers: [signer],
         bytesCreatedOnChain: 0,
       });
+
+      // --- Handle unwrapping wSOL after sell if mintA is native SOL ---
+      if (mintA.equals(NATIVE_MINT)) {
+        console.log(
+          "[sellTokens] Detected wSOL as output, adding unwrap instruction"
+        );
+
+        try {
+          // Check if there's a wSOL balance after the trade would complete
+          const wSolBalance = await connection.getTokenAccountBalance(userTaA);
+          console.log(
+            `[sellTokens] User wSOL balance: ${wSolBalance.value.amount}`
+          );
+
+          // Only add unwrap if there's a balance
+          if (Number(wSolBalance.value.amount) > 0) {
+            const unwrapIx = await createUnwrapSolInstruction(userPublicKey);
+            tx = tx.add({
+              instruction: fromWeb3JsInstruction(unwrapIx),
+              signers: [signer],
+              bytesCreatedOnChain: 0,
+            });
+            console.log("[sellTokens] Added unwrap SOL instruction");
+          } else {
+            console.log("[sellTokens] No wSOL balance to unwrap");
+          }
+        } catch (error) {
+          console.log(
+            "[sellTokens] Error checking wSOL balance, skipping unwrap"
+          );
+        }
+      }
+      // --- End unwrap wSOL handling ---
 
       umi.use(signerIdentity(signer));
       const sellTx = await tx
