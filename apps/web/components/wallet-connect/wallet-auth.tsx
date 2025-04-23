@@ -1,20 +1,24 @@
 "use client";
 
-import { FC, useState, useCallback, memo } from "react";
+import { FC, useState, useCallback, memo, useEffect } from "react";
 import { useWallet } from "@jup-ag/wallet-adapter";
 import { signIn, signOut, useSession, getCsrfToken } from "next-auth/react";
 import { Button } from "@workspace/ui/components/button";
 import { SigninMessage } from "@/utils/SigninMessage";
 import bs58 from "bs58";
+import { WalletModal } from "@workspace/ui/components/wallet-connect/wallet-modal";
 
 export const WalletAuth: FC = memo(() => {
-  const { publicKey, signMessage, disconnect } = useWallet();
+  const { publicKey, signMessage, disconnect, connect, connected } =
+    useWallet();
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
   const handleSignIn = useCallback(async () => {
     try {
-      if (!publicKey || !signMessage) {
+      if (!connected) {
+        setIsWalletModalOpen(true);
         return;
       }
 
@@ -23,6 +27,10 @@ export const WalletAuth: FC = memo(() => {
 
       if (!csrfToken) {
         console.error("Failed to get CSRF token");
+        return;
+      }
+      if (!publicKey || !signMessage) {
+        console.error("No public key found");
         return;
       }
 
@@ -36,6 +44,7 @@ export const WalletAuth: FC = memo(() => {
 
       // Sign the message
       const encodedMessage = new TextEncoder().encode(message.prepare());
+
       const signatureBytes = await signMessage(encodedMessage);
       const signature = bs58.encode(signatureBytes);
 
@@ -54,7 +63,14 @@ export const WalletAuth: FC = memo(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [publicKey, signMessage]);
+  }, [publicKey, signMessage, connected]);
+
+  // This effect will trigger the sign-in process when a wallet gets connected
+  useEffect(() => {
+    if (connected && publicKey && !session && !isLoading) {
+      handleSignIn();
+    }
+  }, [connected, publicKey, session, handleSignIn, isLoading]);
 
   const handleSignOut = useCallback(async () => {
     await disconnect();
@@ -85,14 +101,19 @@ export const WalletAuth: FC = memo(() => {
   }
 
   return (
-    <Button
-      onClick={handleSignIn}
-      disabled={!publicKey || !signMessage || isLoading}
-      size="sm"
-      className="h-8 px-3 py-0 text-xs bg-violet-600 hover:bg-violet-700"
-    >
-      {isLoading ? "Signing in..." : "Sign in"}
-    </Button>
+    <>
+      <Button
+        onClick={handleSignIn}
+        size="sm"
+        className="h-8 px-3 py-0 text-xs bg-violet-600 hover:bg-violet-700"
+      >
+        {isLoading ? "Signing in..." : "Sign in"}
+      </Button>
+      <WalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+      />
+    </>
   );
 });
 
