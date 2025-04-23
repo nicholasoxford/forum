@@ -8,7 +8,7 @@ export const Footer = () => {
           {/* Brand/Logo area with enhanced styling */}
           <div className="flex flex-col items-center md:items-start">
             <div className="font-display text-2xl font-bold text-zinc-900 dark:text-white mb-2 flex items-center">
-              Token<span className="text-violet-500">Flow</span>
+              Groupy<span className="text-violet-500">.Fun</span>
               <div className="size-2 rounded-full bg-green-500 ml-2"></div>
             </div>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -92,7 +92,7 @@ export const Footer = () => {
 
         {/* Copyright with token symbol */}
         <div className="mt-12 text-center text-xs text-zinc-500 dark:text-zinc-500 flex items-center justify-center gap-2">
-          © {new Date().getFullYear()} TokenFlow. All rights reserved.
+          © {new Date().getFullYear()} Groupy.Fun. All rights reserved.
           <span className="inline-block ml-1 text-xs px-1.5 py-0.5 bg-zinc-800/30 rounded-md">
             $TKN
           </span>

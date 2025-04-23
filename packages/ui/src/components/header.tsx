@@ -41,7 +41,7 @@ export function Header({ className, walletAuthComponent }: HeaderProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <div className="font-display text-xl md:text-2xl font-bold text-white">
-            Token<span className="text-violet-400">Flow</span>
+            Groupy<span className="text-violet-400">.Fun</span>
             <div className="inline-block size-1.5 md:size-2 rounded-full bg-green-500 ml-1.5 md:ml-2 animate-pulse"></div>
           </div>
         </Link>
