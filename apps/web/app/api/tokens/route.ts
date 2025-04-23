@@ -4,8 +4,8 @@ import { tokens, users, groupChats, pools } from "@/src/db/schema";
 import { createTelegramChannel } from "@/lib/telegram";
 import { createConnection, launchPool } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { eq } from "drizzle-orm";
+import { base58 } from "@metaplex-foundation/umi/serializers";
 
 /**
  * POST /api/tokens
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
     // Load wallet keypair from local file
     const walletKeypair = Keypair.fromSecretKey(
-      bs58.decode(process.env.VERTIGO_SECRET_KEY!)
+      base58.serialize(process.env.VERTIGO_SECRET_KEY!)
     );
     console.log("ABOUT TO CREATE CONNECTION");
     const connection = await createConnection();
