@@ -8,7 +8,6 @@ const nextConfig = {
       "pub-5ed5354b7c9a47748b0040d2e7e3c8a6.r2.dev",
     ],
   },
-  output: "standalone",
 };
 
 export default nextConfig;
