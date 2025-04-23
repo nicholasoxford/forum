@@ -9,8 +9,7 @@ import bs58 from "bs58";
 import { WalletModal } from "@workspace/ui/components/wallet-connect/wallet-modal";
 
 export const WalletAuth: FC = memo(() => {
-  const { publicKey, signMessage, disconnect, connect, connected } =
-    useWallet();
+  const { publicKey, signMessage, disconnect, connected } = useWallet();
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);

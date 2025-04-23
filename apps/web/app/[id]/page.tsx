@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Copy, ExternalLink, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import { BuyTokenDialog } from "@/components/buy-token-dialog";
+import { SellTokenDialog } from "@/components/sell-token-dialog";
 import { TokenBalance } from "@/components/token-balance";
 
 interface TokenData {
@@ -133,13 +134,23 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                 <span className="absolute inset-0 bg-gradient-to-r from-violet-600 to-violet-500 opacity-0 group-hover:opacity-100 transition-opacity"></span>
               </Button>
 
-              <BuyTokenDialog
-                tokenMint={tokenData.id}
-                tokenName={tokenName}
-                tokenSymbol={tokenSymbol}
-                transferFeePercentage={transferFeePercentage}
-                className="mt-2 w-full"
-              />
+              <div className="flex gap-2 mt-2">
+                <BuyTokenDialog
+                  tokenMint={tokenData.id}
+                  tokenName={tokenName}
+                  tokenSymbol={tokenSymbol}
+                  transferFeePercentage={transferFeePercentage}
+                  className="flex-1"
+                />
+
+                <SellTokenDialog
+                  tokenMint={tokenData.id}
+                  tokenName={tokenName}
+                  tokenSymbol={tokenSymbol}
+                  transferFeePercentage={transferFeePercentage}
+                  className="flex-1"
+                />
+              </div>
 
               <div className="flex gap-2 mt-3">
                 <Button
