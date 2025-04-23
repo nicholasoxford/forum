@@ -1,11 +1,6 @@
-import { join } from "path";
-import { fileURLToPath } from "url";
-const __dirname = fileURLToPath(import.meta.url);
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["@coral-xyz/anchor"],
-  outputFileTracingRoot: join(__dirname, "../../"),
   transpilePackages: ["@workspace/ui"],
   images: {
     domains: [
