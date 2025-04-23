@@ -1,7 +1,11 @@
+import { join } from "path";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["@coral-xyz/anchor"],
-
+  experimental: {
+    outputFileTracingRoot: join(__dirname, "../../"),
+  },
   transpilePackages: ["@workspace/ui"],
   images: {
     domains: [
