@@ -217,18 +217,13 @@ export async function sellTokens(
             `[sellTokens] User wSOL balance: ${wSolBalance.value.amount}`
           );
 
-          // Only add unwrap if there's a balance
-          if (Number(wSolBalance.value.amount) > 0) {
-            const unwrapIx = await createUnwrapSolInstruction(userPublicKey);
-            tx = tx.add({
-              instruction: fromWeb3JsInstruction(unwrapIx),
-              signers: [signer],
-              bytesCreatedOnChain: 0,
-            });
-            console.log("[sellTokens] Added unwrap SOL instruction");
-          } else {
-            console.log("[sellTokens] No wSOL balance to unwrap");
-          }
+          const unwrapIx = await createUnwrapSolInstruction(userPublicKey);
+          tx = tx.add({
+            instruction: fromWeb3JsInstruction(unwrapIx),
+            signers: [signer],
+            bytesCreatedOnChain: 0,
+          });
+          console.log("[sellTokens] Added unwrap SOL instruction");
         } catch (error) {
           console.log(
             "[sellTokens] Error checking wSOL balance, skipping unwrap"

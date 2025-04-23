@@ -7,29 +7,34 @@ import { Button } from "@workspace/ui/components/button";
 import { SigninMessage } from "@/utils/SigninMessage";
 import bs58 from "bs58";
 import { WalletModal } from "@workspace/ui/components/wallet-connect/wallet-modal";
+import { useWalletPersistence } from "@/hooks/use-wallet-persistence";
 
 export const WalletAuth: FC = memo(() => {
-  const { publicKey, signMessage, disconnect, connected } = useWallet();
-  const { data: session } = useSession();
+  const { publicKey, signMessage, disconnect, connected, connecting } =
+    useWallet();
+  const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
 
+  // Initialize wallet persistence
+  useWalletPersistence();
+
   const handleSignIn = useCallback(async () => {
+    if (status === "authenticated") return;
+
     try {
-      if (!connected) {
+      // If not connected, open modal but don't start auth
+      if (!connected || connecting) {
         setIsWalletModalOpen(true);
         return;
       }
 
       setIsLoading(true);
-      const csrfToken = await getCsrfToken();
 
-      if (!csrfToken) {
-        console.error("Failed to get CSRF token");
-        return;
-      }
-      if (!publicKey || !signMessage) {
-        console.error("No public key found");
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken || !publicKey || !signMessage) {
+        console.error("Missing requirements for sign in");
+        setIsLoading(false);
         return;
       }
 
@@ -43,7 +48,6 @@ export const WalletAuth: FC = memo(() => {
 
       // Sign the message
       const encodedMessage = new TextEncoder().encode(message.prepare());
-
       const signatureBytes = await signMessage(encodedMessage);
       const signature = bs58.encode(signatureBytes);
 
@@ -62,29 +66,66 @@ export const WalletAuth: FC = memo(() => {
     } finally {
       setIsLoading(false);
     }
-  }, [publicKey, signMessage, connected]);
+  }, [publicKey, signMessage, connected, connecting, status]);
 
-  // This effect will trigger the sign-in process when a wallet gets connected
+  // This effect handles auto sign-in once per session when wallet gets connected
   useEffect(() => {
-    if (connected && publicKey && !session && !isLoading) {
-      handleSignIn();
+    // Only try to auto-sign in when:
+    // 1. Wallet is connected
+    // 2. We have a public key
+    // 3. User is not already signed in
+    // 4. Not already loading
+    // 5. Not currently connecting
+    if (
+      !connected ||
+      connecting ||
+      !publicKey ||
+      status === "authenticated" ||
+      isLoading
+    ) {
+      return;
     }
-  }, [connected, publicKey, session, handleSignIn, isLoading]);
+
+    handleSignIn();
+  }, [connected, publicKey, status, handleSignIn, isLoading, connecting]);
 
   const handleSignOut = useCallback(async () => {
-    await disconnect();
-    await signOut({
-      redirect: false,
-      callbackUrl: "/",
-    });
-    window.location.href = "/";
+    setIsLoading(true);
+    try {
+      await disconnect();
+      await signOut({
+        redirect: false,
+        callbackUrl: "/",
+      });
+      // Reload the page to reset all state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Error signing out:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [disconnect]);
 
-  if (session && session.user) {
+  // Show loading state
+  if (status === "loading" || isLoading) {
+    return (
+      <Button
+        size="sm"
+        className="h-8 px-3 py-0 text-xs bg-zinc-600 hover:bg-zinc-700 cursor-wait"
+        disabled
+      >
+        Loading...
+      </Button>
+    );
+  }
+
+  // Show authenticated UI
+  if (status === "authenticated" && session && session.user) {
+    const displayName = session.user.name || session.publicKey || "User";
     return (
       <div className="bg-black/70 backdrop-blur-sm p-2 rounded-lg shadow-md">
         <div className="text-xs text-white text-center mb-1">
-          <span className="font-mono">{session.user.name?.slice(0, 6)}...</span>
+          <span className="font-mono">{displayName.slice(0, 6)}...</span>
         </div>
         <Button
           variant="destructive"
@@ -99,12 +140,14 @@ export const WalletAuth: FC = memo(() => {
     );
   }
 
+  // Show unauthenticated UI
   return (
     <>
       <Button
         onClick={handleSignIn}
         size="sm"
         className="h-8 px-3 py-0 text-xs bg-violet-600 hover:bg-violet-700"
+        disabled={isLoading}
       >
         {isLoading ? "Signing in..." : "Sign in"}
       </Button>
