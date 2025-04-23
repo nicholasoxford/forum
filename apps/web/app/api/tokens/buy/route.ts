@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/src/db";
 import { pools } from "@/src/db/schema";
-import { buyTokens, createConnection, getPayerKeypair } from "@/lib/vertigo";
+import { createConnection } from "@/lib/vertigo";
+import { buyTokens } from "@/lib/vertigo/vertigo-buy";
 import { eq } from "drizzle-orm";
-import {
-  getOrCreateAssociatedTokenAccount,
-  NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
-} from "@solana/spl-token";
+import { NATIVE_MINT } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
-
 /**
  * POST /api/tokens/buy
  *
@@ -19,8 +15,6 @@ import { PublicKey } from "@solana/web3.js";
  * {
  *   tokenMintAddress: string,  // Address of the token to buy
  *   userAddress: string,       // User's wallet address
- *   userTaA?: string,          // User's SOL token account (optional, uses ATA if not provided)
- *   userTaB?: string,          // User's token account (optional, uses ATA if not provided)
  *   amount: number,            // Amount of SOL to spend (in SOL, not lamports)
  *   slippageBps?: number       // Slippage tolerance in basis points (optional, default 100 = 1%)
  * }
@@ -94,46 +88,12 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    // --- End Verification Step ---
-
-    console.log("ABOUT TO GET PAYER");
-    const payer = getPayerKeypair();
-    console.log("ABOUT TO GET USER TA A");
-    const userTaA = await getOrCreateAssociatedTokenAccount(
-      connection,
-      payer,
-      NATIVE_MINT,
-      payer.publicKey,
-      false,
-      "confirmed",
-      { commitment: "confirmed" }
-    );
-    console.log("ABOUT TO GET USER TA B: ", tokenMintAddress);
-    const userTaB = await getOrCreateAssociatedTokenAccount(
-      connection,
-      payer,
-      new PublicKey(tokenMintAddress),
-      payer.publicKey,
-      false,
-      "confirmed",
-      { commitment: "confirmed" },
-      TOKEN_2022_PROGRAM_ID
-    );
-    console.log({
-      userTaA: userTaA.address.toString(),
-      userTaB: userTaB.address.toString(),
-    });
-    // Calculate token accounts if not provided
-    // In a real implementation, these would be derived properly
-    console.log("ABOUT TO BUY TOKENS");
     // Get serialized transaction for buying tokens
     const serializedTx = await buyTokens(connection, {
       poolOwner: poolInfo.ownerAddress,
       mintA: NATIVE_MINT.toString(),
       mintB: tokenMintAddress,
       userAddress,
-      userTaA: userTaA.address.toString(),
-      userTaB: userTaB.address.toString(),
       amount,
       slippageBps,
     });

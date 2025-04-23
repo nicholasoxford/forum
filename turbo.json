@@ -13,7 +13,8 @@
     "R2_SECRET_ACCESS_KEY",
     "R2_ACCOUNT_ID",
     "R2_BUCKET_NAME",
-    "R2_PUBLIC_URL"
+    "R2_PUBLIC_URL",
+    "VERTIGO_SECRET_KEY"
   ],
   "tasks": {
     "build": {

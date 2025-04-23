@@ -3,6 +3,8 @@ import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
 import { Copy, ExternalLink, MessageSquare } from "lucide-react";
 import Image from "next/image";
+import { BuyTokenDialog } from "@/components/buy-token-dialog";
+import { TokenBalance } from "@/components/token-balance";
 
 interface TokenData {
   interface: string;
@@ -131,6 +133,14 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                 <span className="absolute inset-0 bg-gradient-to-r from-violet-600 to-violet-500 opacity-0 group-hover:opacity-100 transition-opacity"></span>
               </Button>
 
+              <BuyTokenDialog
+                tokenMint={tokenData.id}
+                tokenName={tokenName}
+                tokenSymbol={tokenSymbol}
+                transferFeePercentage={transferFeePercentage}
+                className="mt-2 w-full"
+              />
+
               <div className="flex gap-2 mt-3">
                 <Button
                   variant="outline"
@@ -202,6 +212,17 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                   <p className="text-green-400 font-medium">
                     {transferFeePercentage}%
                   </p>
+                </div>
+              </div>
+
+              {/* Your Balance */}
+              <div className="mb-6 bg-black/40 border border-zinc-800/60 rounded-lg p-4">
+                <h2 className="text-zinc-400 text-xs mb-1">Your Balance</h2>
+                <div className="flex items-center gap-2">
+                  <TokenBalance tokenMint={id} />
+                  {tokenSymbol && (
+                    <span className="text-zinc-400">{tokenSymbol}</span>
+                  )}
                 </div>
               </div>
 

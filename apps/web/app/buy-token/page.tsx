@@ -24,8 +24,8 @@ import { base64 } from "@metaplex-foundation/umi/serializers";
 import { useUmi } from "@/lib/umi";
 
 export default function BuyTokenPage() {
-  const { publicKey, signTransaction, connected } = useWallet();
   const umi = useUmi();
+  const { publicKey, signTransaction, connected } = useWallet();
 
   const [tokenMint, setTokenMint] = useState("");
   const [amount, setAmount] = useState("0.1");
