@@ -76,98 +76,43 @@ export const TokenLaunchFlow = () => {
 
     setUploadingImage(true);
     try {
-      // Get presigned URL from API
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: selectedImage.name,
-          contentType: selectedImage.type,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to get upload URL");
-      }
-
-      const { uploadUrl, publicUrl } = await response.json();
-
-      // Upload to storage using presigned URL
-      const upload = await fetch(uploadUrl, {
-        method: "PUT",
-        body: selectedImage,
-        headers: {
-          "Content-Type": selectedImage.type,
-        },
-      });
-
-      if (!upload.ok) {
-        throw new Error(`Upload failed: ${upload.status}`);
-      }
-
-      // Create metadata JSON
-      const metadata = {
-        name,
-        symbol,
-        description: description || `Token for the ${name} community chat.`,
-        image: publicUrl,
-        attributes: [
-          {
-            trait_type: "Token Standard",
-            value: "Token-2022",
-          },
-          {
-            trait_type: "Transfer Fee",
-            value: `${feeBps / 100}%`,
-          },
-        ],
-      };
-
-      // Convert metadata to Blob
-      const metadataBlob = new Blob([JSON.stringify(metadata)], {
-        type: "application/json",
-      });
-
-      // Get presigned URL for metadata from API
-      const metadataFileName = `tokens/${Date.now()}-${symbol.toLowerCase()}-metadata.json`;
-      const metadataResponse = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: metadataFileName,
-          contentType: "application/json",
-        }),
-      });
-
-      if (!metadataResponse.ok) {
-        const error = await metadataResponse.json();
-        throw new Error(error.error || "Failed to get metadata upload URL");
-      }
-
-      const { uploadUrl: metadataUploadUrl, publicUrl: metadataPublicUrl } =
-        await metadataResponse.json();
-
-      // Upload metadata
-      const metadataUpload = await fetch(metadataUploadUrl, {
-        method: "PUT",
-        body: metadataBlob,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!metadataUpload.ok) {
-        throw new Error(`Metadata upload failed: ${metadataUpload.status}`);
-      }
-
-      return metadataPublicUrl;
+      // The image uploader now directly uploads to S3 using the correct endpoint,
+      // so we just need to handle the image preview here
+      return imagePreview || "";
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  // Create metadata JSON and upload it
+  const createMetadata = async (imageUrl: string): Promise<string> => {
+    try {
+      // Create metadata using the metadata API endpoint
+      const metadataResponse = await fetch(
+        "https://forum-lingering-leaf-9073.fly.dev/api/metadata",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            symbol,
+            description: description || `Token for the ${name} community chat.`,
+            image: imageUrl,
+          }),
+        }
+      );
+
+      if (!metadataResponse.ok) {
+        throw new Error("Failed to create metadata");
+      }
+
+      const { uri } = await metadataResponse.json();
+      return uri;
+    } catch (error) {
+      console.error("Error creating metadata:", error);
+      throw error;
     }
   };
 
@@ -187,10 +132,16 @@ export const TokenLaunchFlow = () => {
     setTxSignature(null);
 
     try {
-      // Upload image and get metadata URI if image is selected
-      let metadataUri = uri;
+      // Get the image URL from the preview or upload
+      let imageUrl = imagePreview || "";
       if (selectedImage) {
-        metadataUri = await uploadImage();
+        imageUrl = await uploadImage();
+      }
+
+      // Create metadata and get URI
+      let metadataUri = "";
+      if (imageUrl) {
+        metadataUri = await createMetadata(imageUrl);
       }
 
       // Always use 1 billion tokens as the initial mint amount
@@ -269,8 +220,7 @@ export const TokenLaunchFlow = () => {
     wallet,
     name,
     symbol,
-    description,
-    uri,
+
     decimals,
     feeBps,
     maxFee,
@@ -279,6 +229,10 @@ export const TokenLaunchFlow = () => {
     isCustomMarketCap,
     umi,
     selectedImage,
+    imagePreview,
+
+    createMetadata,
+    uploadImage,
   ]);
 
   // Render appropriate step content

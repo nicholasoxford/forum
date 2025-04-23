@@ -4,6 +4,10 @@ import {
   deleteFile,
   storeMetadata,
 } from "./lib/s3-client";
+import { pools, users } from "./db/schema";
+import { db } from "./db";
+
+// Initialize the database
 
 // Use PORT environment variable or fallback to 3000
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -76,6 +80,29 @@ const app = new Elysia()
       }),
     }
   )
+  .get("/db", async () => {
+    const startTime = performance.now();
+    const result = await db.select().from(pools);
+    const endTime = performance.now();
+    const queryTimeMs = endTime - startTime;
+
+    return {
+      queryTimeMs,
+      data: result,
+    };
+  })
+  // Get users
+  .get("/api/users", async () => {
+    try {
+      const allUsers = await db.select().from(users);
+      return allUsers;
+    } catch (error) {
+      return new Response(JSON.stringify({ error: "Failed to fetch users" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  })
 
   .listen(port);
 

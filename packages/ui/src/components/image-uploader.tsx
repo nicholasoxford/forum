@@ -5,6 +5,7 @@ import { Button } from "./button";
 
 // Maximum file size (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const API_BASE_URL = "https://forum-lingering-leaf-9073.fly.dev";
 
 interface ImageUploaderProps {
   onImageUpload: (imageUrl: string) => void;
@@ -51,17 +52,23 @@ export const ImageUploader: FC<ImageUploaderProps> = ({
       setIsUploading(true);
       setUploadProgress(0);
 
+      // Generate a unique key for the file
+      const key = `uploads/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "")}`;
+
       // Step 1: Get a presigned URL from our API
-      const presignedUrlResponse = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-        }),
-      });
+      const presignedUrlResponse = await fetch(
+        `${API_BASE_URL}/api/upload-url`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            key,
+            contentType: file.type,
+          }),
+        }
+      );
 
       if (!presignedUrlResponse.ok) {
         const errorData = await presignedUrlResponse.json();
@@ -71,6 +78,8 @@ export const ImageUploader: FC<ImageUploaderProps> = ({
 
       const { uploadUrl, publicUrl } = await presignedUrlResponse.json();
       console.log("Got presigned URL:", uploadUrl);
+
+      setUploadProgress(25);
 
       // Step 2: Upload directly to R2 using the presigned URL
       const uploadResponse = await fetch(uploadUrl, {
@@ -83,6 +92,8 @@ export const ImageUploader: FC<ImageUploaderProps> = ({
 
       console.log("Upload response status:", uploadResponse.status);
 
+      setUploadProgress(75);
+
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
         console.error("Upload failed:", errorText);
@@ -90,6 +101,8 @@ export const ImageUploader: FC<ImageUploaderProps> = ({
           `Failed to upload to storage: ${uploadResponse.status} ${errorText}`
         );
       }
+
+      setUploadProgress(100);
 
       // Step 3: Return the public URL to the parent component
       onImageUpload(publicUrl);
@@ -102,7 +115,7 @@ export const ImageUploader: FC<ImageUploaderProps> = ({
       }
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
+      setTimeout(() => setUploadProgress(0), 500); // Reset progress after a small delay
     }
   };
 
