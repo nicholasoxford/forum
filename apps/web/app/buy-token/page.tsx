@@ -18,14 +18,17 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@workspace/ui/components/alert";
-import { Loader2, ExternalLink, ArrowRight, Check } from "lucide-react";
+import { Loader2, ExternalLink, ArrowRight } from "lucide-react";
 import { WalletButton } from "@workspace/ui/components";
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { useUmi } from "@/lib/umi";
+import { useTokens } from "@/hooks/use-tokens";
+import { TokenList } from "@/components/token-list";
 
 export default function BuyTokenPage() {
   const umi = useUmi();
   const { publicKey, signTransaction, connected } = useWallet();
+  const { tokens, loading: loadingTokens } = useTokens();
 
   const [tokenMint, setTokenMint] = useState("");
   const [amount, setAmount] = useState("0.1");
@@ -36,35 +39,6 @@ export default function BuyTokenPage() {
   }>({ type: null, message: "" });
   const [poolInfo, setPoolInfo] = useState<any>(null);
   const [txSignature, setTxSignature] = useState<string | null>(null);
-  const [availableTokens, setAvailableTokens] = useState<any[]>([]);
-  const [loadingTokens, setLoadingTokens] = useState(false);
-
-  // Fetch all available tokens
-  useEffect(() => {
-    const fetchTokens = async () => {
-      try {
-        setLoadingTokens(true);
-        const response = await fetch("/api/tokens");
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          // Filter to only include tokens with a pool address
-          const tokensWithPools = data.tokens.filter(
-            (token: { pool: any }) => token.pool !== null
-          );
-          setAvailableTokens(tokensWithPools || []);
-        } else {
-          console.error("Failed to fetch tokens:", data.error);
-        }
-      } catch (error) {
-        console.error("Error fetching tokens:", error);
-      } finally {
-        setLoadingTokens(false);
-      }
-    };
-
-    fetchTokens();
-  }, []);
 
   // Handle URL parameters
   useEffect(() => {
@@ -119,7 +93,7 @@ export default function BuyTokenPage() {
     if (!tokenMint) {
       setStatus({
         type: "error",
-        message: "Please enter a token mint address",
+        message: "Please select a token",
       });
       return;
     }
@@ -229,79 +203,25 @@ export default function BuyTokenPage() {
       </div>
 
       {/* Available Tokens Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Available Tokens</CardTitle>
-          <CardDescription>Select a token from the list below</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingTokens ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-            </div>
-          ) : availableTokens.length > 0 ? (
-            <div className="grid gap-2">
-              {availableTokens.map((token) => (
-                <div
-                  key={token.tokenMintAddress}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    tokenMint === token.tokenMintAddress
-                      ? "bg-primary/10 border-primary"
-                      : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}
-                  onClick={() => handleSelectToken(token.tokenMintAddress)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">
-                        {token.tokenName} ({token.tokenSymbol})
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1 font-mono">
-                        {token.tokenMintAddress.slice(0, 8)}...
-                        {token.tokenMintAddress.slice(-8)}
-                      </p>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="text-xs mr-2">
-                        Fee: {token.transferFeeBasisPoints / 100}%
-                      </span>
-                      {tokenMint === token.tokenMintAddress && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center py-4 text-gray-500">
-              No tokens available
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="mb-6">
+        <TokenList
+          tokens={tokens}
+          loading={loadingTokens}
+          selectedTokenMint={tokenMint}
+          onSelectToken={handleSelectToken}
+          title="Select a Token"
+          description="Choose a token to purchase"
+        />
+      </div>
 
       {/* Buy Token Section */}
       <Card>
         <CardHeader>
           <CardTitle>Buy Tokens</CardTitle>
-          <CardDescription>
-            Enter a token mint address and the amount of SOL to spend
-          </CardDescription>
+          <CardDescription>Enter the amount of SOL to spend</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="tokenMint">Token Mint Address</Label>
-            <Input
-              id="tokenMint"
-              placeholder="Enter token mint address"
-              value={tokenMint}
-              onChange={(e) => setTokenMint(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
           {poolInfo && (
             <Alert className="bg-blue-50 dark:bg-blue-950">
               <AlertTitle className="flex items-center gap-2">

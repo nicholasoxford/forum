@@ -38,21 +38,15 @@ export async function createTelegramChannel(
   let channelIdTemp = "";
   let usernameTemp = "";
   try {
-    console.log("about to create supergroup");
     // Create a supergroup (not a broadcast channel) to support join-request gating
     const updates = await createSupergroup(client, title, about);
-    console.log("about to extract channel info");
     const { channelId, channel } = extractChannelInfo(updates);
     channelIdTemp = channelId;
-    console.log("CHANNEL ID", channelId);
     // Configure the channel
     const inputChannel = createInputChannel(channel);
-    console.log("about to create input channel");
     const username = generateUsername(title);
     usernameTemp = username;
-    console.log("about to configure channel");
     await configureChannel(client, inputChannel, channel, title, username);
-    console.log("about to return");
     return { channelId, username };
   } catch (error) {
     console.error("HERE BRO", error);

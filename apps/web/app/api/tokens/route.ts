@@ -95,7 +95,6 @@ export async function POST(request: NextRequest) {
       );
       telegramChannelId = channelId;
       telegramUsername = username;
-      console.log("ARE WE HERE?");
       // Persist channel info in group_chats table with requiredHoldings from input or default "0"
       await db.insert(groupChats).values({
         tokenMintAddress,
@@ -106,7 +105,6 @@ export async function POST(request: NextRequest) {
         requiredHoldings: requiredHoldings || "0", // Use provided value or default
         creatorWalletAddress,
       });
-      console.log("POST INSERT?");
     } catch (tgError) {
       console.error("Failed to create Telegram channel", tgError);
       // Not fatal for token creation; continue.
@@ -115,13 +113,11 @@ export async function POST(request: NextRequest) {
     const walletKeypair = Keypair.fromSecretKey(
       base58.serialize(process.env.VERTIGO_SECRET_KEY!)
     );
-    console.log("ABOUT TO CREATE CONNECTION");
     const connection = await createConnection();
     // Default pool settings
     const DEFAULT_SHIFT = 100; // 100 virtual SOL
     const DEFAULT_ROYALTIES_BPS = 100; // 1%
     const OWNER_ADDRESS = "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz";
-    console.log("ABOUT TO LAUNCH POOL");
     const result = await launchPool(connection, {
       tokenName,
       tokenSymbol,
@@ -145,9 +141,6 @@ export async function POST(request: NextRequest) {
         walletAuthority: walletKeypair,
       },
     });
-    console.log("Pool launched successfully!");
-    console.log(`Pool address: ${result.poolAddress}`);
-    console.log(`Transaction: ${result.signature}`);
 
     // Save pool information to the new pools table
     await db.insert(pools).values({
