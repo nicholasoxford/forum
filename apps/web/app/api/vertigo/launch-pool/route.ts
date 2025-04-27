@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
           feeExemptBuys: 1,
         },
       },
-      ownerAddress,
+      ownerAddress: walletKeypair.publicKey.toString(),
       existingToken: {
         mintB: new PublicKey(mintB),
         tokenWallet: new PublicKey(tokenWallet),

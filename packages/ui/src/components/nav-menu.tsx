@@ -75,6 +75,17 @@ export function NavMenu({ className }: NavMenuProps) {
             </Link>
           </NavigationMenuLink>
         </NavigationMenuItem>
+
+        <NavigationMenuItem>
+          <NavigationMenuLink asChild>
+            <Link
+              href="/claim-royalties"
+              className={cn(navigationMenuTriggerStyle(), "text-white")}
+            >
+              Claim Royalties
+            </Link>
+          </NavigationMenuLink>
+        </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
   );

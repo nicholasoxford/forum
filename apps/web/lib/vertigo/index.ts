@@ -202,7 +202,13 @@ export async function claimRoyalties(
     const pool = new PublicKey(params.poolAddress);
     const mintA = new PublicKey(params.mintA);
     const receiverTaA = new PublicKey(params.receiverTaA);
-    const claimer = Keypair.fromSecretKey(payer.secretKey);
+
+    // Use the payer (server wallet) as the claimer
+    // This matches the example in the GitHub repo
+    const claimer = payer;
+
+    console.log(`Claiming royalties from pool: ${pool.toString()}`);
+    console.log(`Receiving token account: ${receiverTaA.toString()}`);
 
     // Execute the claim royalties transaction
     const signature = await vertigo.claimRoyalties({
@@ -224,7 +230,10 @@ export async function claimRoyalties(
 export async function createConnection(): Promise<Connection> {
   return new Connection(
     process.env.RPC_URL || "https://api.devnet.solana.com",
-    "confirmed"
+    {
+      commitment: "confirmed",
+      confirmTransactionInitialTimeout: 60000, // 60 seconds timeout for confirmation
+    }
   );
   // return new Connection(
   //   process.env.RPC_URL || 'https://api.mainnet-beta.solana.com'
