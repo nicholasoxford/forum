@@ -29,7 +29,7 @@ export default function TokensPage() {
     <div className="container max-w-4xl mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Available Tokens</h1>
-        <Link href="/create-token">
+        <Link href="/launch">
           <Button>
             <PlusCircle className="h-4 w-4 mr-2" />
             Create Token

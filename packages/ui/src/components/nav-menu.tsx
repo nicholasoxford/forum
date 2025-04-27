@@ -32,37 +32,14 @@ export function NavMenu({ className }: NavMenuProps) {
         </NavigationMenuItem>
 
         <NavigationMenuItem>
-          <NavigationMenuTrigger className="text-white">
-            Communities
-          </NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <div className="w-[220px] p-2 bg-zinc-900 rounded-lg">
-              <NavigationMenuLink asChild>
-                <Link
-                  href="/communities"
-                  className="text-white hover:bg-zinc-800 focus:bg-zinc-800 rounded-md p-2 w-full block"
-                >
-                  Browse Communities
-                </Link>
-              </NavigationMenuLink>
-              <NavigationMenuLink asChild>
-                <Link
-                  href="/communities/popular"
-                  className="text-white hover:bg-zinc-800 focus:bg-zinc-800 rounded-md p-2 w-full block"
-                >
-                  Popular
-                </Link>
-              </NavigationMenuLink>
-              <NavigationMenuLink asChild>
-                <Link
-                  href="/communities/new"
-                  className="text-white hover:bg-zinc-800 focus:bg-zinc-800 rounded-md p-2 w-full block"
-                >
-                  New Launches
-                </Link>
-              </NavigationMenuLink>
-            </div>
-          </NavigationMenuContent>
+          <NavigationMenuLink asChild>
+            <Link
+              href="/chats"
+              className={cn(navigationMenuTriggerStyle(), "text-white")}
+            >
+              Chats
+            </Link>
+          </NavigationMenuLink>
         </NavigationMenuItem>
 
         <NavigationMenuItem>
