@@ -130,7 +130,10 @@ export async function claimPoolRoyalties(
     // Create Vertigo SDK instance with the server's wallet
     const payer = getPayerKeypair();
     const wallet = new anchor.Wallet(payer);
-    const vertigo = new VertigoSDK(connection, wallet);
+    const provider = new anchor.AnchorProvider(connection, wallet, {
+      commitment: "confirmed",
+    });
+    const vertigo = new VertigoSDK(provider);
 
     // Convert string addresses to PublicKeys
     const pool = new PublicKey(params.poolAddress);
