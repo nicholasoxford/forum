@@ -7,6 +7,7 @@ import {
 
 import cors from "@elysiajs/cors";
 import { getDb, pools, users } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 // Initialize the database
 
@@ -16,6 +17,23 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 const app = new Elysia()
   .use(cors())
   .get("/", () => "Hello Elysia")
+  .post(
+    "/buy",
+    async ({ body }) => {
+      const { tokenMintAddress, userAddress, amount } = body;
+      const db = getDb();
+      const pool = await db.query.pools.findFirst({
+        where: eq(pools.tokenMintAddress, tokenMintAddress),
+      });
+    },
+    {
+      body: t.Object({
+        tokenMintAddress: t.String(),
+        userAddress: t.String(),
+        amount: t.Number(),
+      }),
+    }
+  )
 
   // Generate presigned URL for direct uploads to R2
   .post(
