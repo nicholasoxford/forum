@@ -8,6 +8,15 @@ const nextConfig = {
       "pub-5ed5354b7c9a47748b0040d2e7e3c8a6.r2.dev",
     ],
   },
+  // no fs
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+    };
+    return config;
+  },
 };
 
 export default nextConfig;

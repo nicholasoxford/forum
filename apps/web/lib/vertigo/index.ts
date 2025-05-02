@@ -150,7 +150,6 @@ export async function sellTokens(
     const owner = new PublicKey(params.poolOwner);
     const mintA = new PublicKey(params.mintA);
     const mintB = new PublicKey(params.mintB);
-    const userAddress = new PublicKey(params.userAddress);
     const userTaA = new PublicKey(params.userTaA);
     const userTaB = new PublicKey(params.userTaB);
 
@@ -187,45 +186,6 @@ export async function sellTokens(
   }
 }
 
-/**
- * Claim royalty fees from a Vertigo pool
- */
-export async function claimRoyalties(
-  connection: Connection,
-  params: ClaimRoyaltiesParams
-): Promise<string> {
-  try {
-    const vertigo = createVertigoSDK(connection);
-    const payer = getPayerKeypair();
-
-    // Convert string addresses to PublicKeys
-    const pool = new PublicKey(params.poolAddress);
-    const mintA = new PublicKey(params.mintA);
-    const receiverTaA = new PublicKey(params.receiverTaA);
-
-    // Use the payer (server wallet) as the claimer
-    // This matches the example in the GitHub repo
-    const claimer = payer;
-
-    console.log(`Claiming royalties from pool: ${pool.toString()}`);
-    console.log(`Receiving token account: ${receiverTaA.toString()}`);
-
-    // Execute the claim royalties transaction
-    const signature = await vertigo.claimRoyalties({
-      pool,
-      claimer,
-      mintA,
-      receiverTaA,
-      tokenProgramA: TOKEN_PROGRAM_ID,
-    });
-
-    return signature;
-  } catch (error: any) {
-    console.error("Error claiming royalties from Vertigo pool:", error);
-    throw new Error(`Failed to claim royalties: ${error.message}`);
-  }
-}
-
 // Helper function to create a connection
 export async function createConnection(): Promise<Connection> {
   return new Connection(
@@ -241,3 +201,4 @@ export async function createConnection(): Promise<Connection> {
 }
 
 export * from "./vertigo-utils";
+export * from "./vertigo-claim";

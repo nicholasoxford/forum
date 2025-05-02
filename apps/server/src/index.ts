@@ -4,8 +4,9 @@ import {
   deleteFile,
   storeMetadata,
 } from "./lib/s3-client";
-import { pools, users } from "./db/schema";
-import { db } from "./db";
+
+import cors from "@elysiajs/cors";
+import { getDb, pools, users } from "@workspace/db";
 
 // Initialize the database
 
@@ -13,6 +14,7 @@ import { db } from "./db";
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const app = new Elysia()
+  .use(cors())
   .get("/", () => "Hello Elysia")
 
   // Generate presigned URL for direct uploads to R2
@@ -81,6 +83,7 @@ const app = new Elysia()
     }
   )
   .get("/db", async () => {
+    const db = getDb();
     const startTime = performance.now();
     const result = await db.select().from(pools);
     const endTime = performance.now();
@@ -94,6 +97,7 @@ const app = new Elysia()
   // Get users
   .get("/api/users", async () => {
     try {
+      const db = getDb();
       const allUsers = await db.select().from(users);
       return allUsers;
     } catch (error) {

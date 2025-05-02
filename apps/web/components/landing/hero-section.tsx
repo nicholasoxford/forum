@@ -138,9 +138,9 @@ export const HeroSection = () => {
         <div className="max-w-4xl mx-auto">
           {/* Main heading with large bold text */}
           <h1 className="font-display text-6xl md:text-8xl font-bold tracking-tight text-white mb-6 relative">
-            CHAT IS{" "}
+            GROUPY IS{" "}
             <span className="text-violet-500 inline-block relative">
-              MONEY<span className="text-violet-500">.</span>
+              FUN<span className="text-violet-500">.</span>
               <span className="absolute -right-1 -bottom-2 w-14 h-1 bg-violet-500 md:h-2 md:-bottom-3 md:-right-2 md:w-20 rounded-full"></span>
             </span>
           </h1>

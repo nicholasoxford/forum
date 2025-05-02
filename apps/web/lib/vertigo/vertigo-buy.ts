@@ -32,7 +32,12 @@ import { BuyTokensParams } from "@/types/vertigo";
 import { getPayerKeypair } from ".";
 
 /**
- * Wraps SOL to wSOL by transferring SOL and syncing the native account
+ * Wraps SOL to wSOL
+ * @param connection - Solana connection
+ * @param amountLamports - Amount to wrap in lamports
+ * @param userPublicKey - User's public key
+ * @param payer - Payer keypair for the transaction
+ * @returns Array of transaction instructions
  */
 async function wrapSol(
   connection: Connection,
@@ -41,7 +46,6 @@ async function wrapSol(
   payer: Keypair
 ): Promise<TransactionInstruction[]> {
   try {
-    // Get the associated token account for wSOL
     const userWsolAta = await getOrCreateAssociatedTokenAccount(
       connection,
       payer,
@@ -53,20 +57,14 @@ async function wrapSol(
       TOKEN_PROGRAM_ID
     );
 
-    // Create a transaction to transfer SOL and sync the native account
-    const instructions = [
-      // Transfer SOL to the associated token account
+    return [
       SystemProgram.transfer({
         fromPubkey: userPublicKey,
         toPubkey: userWsolAta.address,
         lamports: amountLamports,
       }),
-      // Sync native instruction to convert SOL to wSOL
       createSyncNativeInstruction(userWsolAta.address),
     ];
-
-    // Serialize the transaction
-    return instructions;
   } catch (error: any) {
     console.error("Error wrapping SOL:", error);
     throw new Error(
@@ -76,8 +74,131 @@ async function wrapSol(
 }
 
 /**
+ * Get or create a token account for the user
+ */
+async function getOrCreateUserTokenAccount(
+  connection: Connection,
+  mint: PublicKey,
+  userPublicKey: PublicKey,
+  backendPayer: Keypair,
+  tokenProgramId: PublicKey
+): Promise<PublicKey> {
+  const response = await getOrCreateAssociatedTokenAccount(
+    connection,
+    backendPayer,
+    mint,
+    userPublicKey,
+    false,
+    "confirmed",
+    { commitment: "confirmed" },
+    tokenProgramId
+  );
+
+  return response.address;
+}
+
+/**
+ * Check if user has sufficient SOL and handle wrapping if needed
+ */
+async function handleSolTokenInput(
+  connection: Connection,
+  userPublicKey: PublicKey,
+  userTaA: PublicKey,
+  amount: number,
+  backendPayer: Keypair
+): Promise<TransactionInstruction[] | undefined> {
+  console.log("[buyTokens] Detected SOL as input token, checking wSOL balance");
+
+  const amountInLamports = amount * LAMPORTS_PER_SOL;
+
+  // Check wSOL balance
+  let wSolBalance = 0;
+  try {
+    const balance = await connection.getTokenAccountBalance(userTaA);
+    wSolBalance = new BN(balance.value.amount).toNumber();
+    console.log(
+      `[buyTokens] User wSOL balance: ${wSolBalance / LAMPORTS_PER_SOL} SOL`
+    );
+  } catch (error) {
+    console.log(
+      "[buyTokens] Error getting wSOL balance, likely account doesn't exist yet"
+    );
+  }
+
+  // Check native SOL balance
+  const solBalance = await connection.getBalance(userPublicKey);
+  console.log(
+    `[buyTokens] User SOL balance: ${solBalance / LAMPORTS_PER_SOL} SOL`
+  );
+
+  // Check if we need to wrap SOL
+  if (amountInLamports > wSolBalance) {
+    console.log(
+      `[buyTokens] Need more wSOL: has ${wSolBalance}, needs ${amountInLamports}`
+    );
+
+    // Check if user has enough total SOL (wSOL + SOL)
+    if (solBalance + wSolBalance < amountInLamports) {
+      throw new Error(
+        `Not enough SOL. Balance: ${(solBalance + wSolBalance) / LAMPORTS_PER_SOL} SOL, required: ${amount} SOL`
+      );
+    }
+
+    // Calculate how much SOL to wrap
+    const diffLamports = amountInLamports - wSolBalance;
+    if (diffLamports > 0) {
+      console.log(
+        `[buyTokens] Preparing transaction to wrap ${diffLamports / LAMPORTS_PER_SOL} SOL to wSOL`
+      );
+      return await wrapSol(
+        connection,
+        diffLamports,
+        userPublicKey,
+        backendPayer
+      );
+    }
+  }
+
+  // Validate wSOL account has or will have sufficient balance
+  if (wSolBalance < amountInLamports) {
+    throw new Error(
+      `Insufficient wSOL balance for operation. Has: ${wSolBalance / LAMPORTS_PER_SOL} SOL, needs: ${amount} SOL`
+    );
+  }
+
+  return undefined;
+}
+
+/**
+ * Check if user has sufficient tokens for non-SOL token
+ */
+async function checkNonSolTokenBalance(
+  connection: Connection,
+  userTaA: PublicKey,
+  amountLamports: BN
+): Promise<void> {
+  try {
+    const balance = await connection.getTokenAccountBalance(userTaA);
+    const tokenBalance = new BN(balance.value.amount).toNumber();
+    console.log(`[buyTokens] User token A balance: ${tokenBalance}`);
+
+    if (tokenBalance < amountLamports.toNumber()) {
+      throw new Error(
+        `Insufficient token balance. Has: ${tokenBalance}, needs: ${amountLamports.toNumber()}`
+      );
+    }
+  } catch (error: any) {
+    throw new Error(
+      `Failed to get token balance or token account doesn't exist: ${error.message}`
+    );
+  }
+}
+
+/**
  * Buy tokens from a Vertigo pool
- * Handles ATA creation using backend payer.
+ * @param connection - Solana connection
+ * @param params - Parameters for buying tokens
+ * @returns Serialized transaction as string
  */
 export async function buyTokens(
   connection: Connection,
@@ -87,6 +208,7 @@ export async function buyTokens(
     const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
     const umi = createUmi(RPC_URL, "confirmed");
 
+    // Setup dummy wallet for Anchor program
     const dummyPayer = Keypair.generate();
     const dummyWallet = new anchor.Wallet(dummyPayer);
 
@@ -95,27 +217,31 @@ export async function buyTokens(
     const mintA = new PublicKey(params.mintA);
     const mintB = new PublicKey(params.mintB);
     const userPublicKey = new PublicKey(params.userAddress);
+    const amountLamports = new BN(params.amount * LAMPORTS_PER_SOL);
 
-    // --- Get backend payer and create/find ATAs ---
+    // Get backend payer for ATA creation
     const backendPayer = getPayerKeypair();
     console.log(
       `[buyTokens] Using backend payer: ${backendPayer.publicKey.toString()}`
     );
 
+    // Get token program IDs
+    const tokenProgramA = mintA.equals(NATIVE_MINT)
+      ? TOKEN_PROGRAM_ID
+      : TOKEN_PROGRAM_ID;
+    const tokenProgramB = TOKEN_2022_PROGRAM_ID;
+
+    // Get or create token accounts
     console.log(
       `[buyTokens] Getting/creating ATA for Mint A (${mintA.toString()}) owned by ${userPublicKey.toString()}`
     );
-    const userTaAResponse = await getOrCreateAssociatedTokenAccount(
+    const userTaA = await getOrCreateUserTokenAccount(
       connection,
-      backendPayer,
       mintA,
       userPublicKey,
-      false,
-      "confirmed",
-      { commitment: "confirmed" },
-      mintA.equals(NATIVE_MINT) ? TOKEN_PROGRAM_ID : TOKEN_PROGRAM_ID
+      backendPayer,
+      tokenProgramA
     );
-    const userTaA = userTaAResponse.address;
     console.log(
       `[buyTokens] Using ATA A (${userTaA.toString()}) for owner ${userPublicKey.toString()}`
     );
@@ -123,117 +249,33 @@ export async function buyTokens(
     console.log(
       `[buyTokens] Getting/creating ATA for Mint B (${mintB.toString()}) owned by ${userPublicKey.toString()}`
     );
-    const userTaBResponse = await getOrCreateAssociatedTokenAccount(
+    const userTaB = await getOrCreateUserTokenAccount(
       connection,
-      backendPayer,
       mintB,
       userPublicKey,
-      false,
-      "confirmed",
-      { commitment: "confirmed" },
-      TOKEN_2022_PROGRAM_ID
+      backendPayer,
+      tokenProgramB
     );
-    const userTaB = userTaBResponse.address;
     console.log(
       `[buyTokens] Using ATA B (${userTaB.toString()}) for owner ${userPublicKey.toString()}`
     );
-    // --- End ATA logic ---
 
-    const amountLamports = new BN(params.amount * LAMPORTS_PER_SOL);
-
-    // --- Special wSOL quality of life handling ---
+    // Handle SOL wrapping if needed
     let wrapTx: TransactionInstruction[] | undefined;
     if (mintA.equals(NATIVE_MINT)) {
-      console.log(
-        "[buyTokens] Detected SOL as input token, checking wSOL balance"
+      wrapTx = await handleSolTokenInput(
+        connection,
+        userPublicKey,
+        userTaA,
+        params.amount,
+        backendPayer
       );
-
-      // Check wSOL balance
-      let wSolBalance = 0;
-      try {
-        const balance = await connection.getTokenAccountBalance(userTaA);
-        wSolBalance = new BN(balance.value.amount).toNumber();
-        console.log(
-          `[buyTokens] User wSOL balance: ${wSolBalance / LAMPORTS_PER_SOL} SOL`
-        );
-      } catch (error) {
-        console.log(
-          "[buyTokens] Error getting wSOL balance, likely account doesn't exist yet"
-        );
-      }
-
-      // Check native SOL balance
-      const solBalance = await connection.getBalance(userPublicKey);
-      console.log(
-        `[buyTokens] User SOL balance: ${solBalance / LAMPORTS_PER_SOL} SOL`
-      );
-
-      // Check if we need to wrap SOL
-      const amountInLamports = params.amount * LAMPORTS_PER_SOL;
-      if (amountInLamports > wSolBalance) {
-        console.log(
-          `[buyTokens] Need more wSOL: has ${wSolBalance}, needs ${amountInLamports}`
-        );
-
-        // Check if user has enough total SOL (wSOL + SOL)
-        if (solBalance + wSolBalance < amountInLamports) {
-          throw new Error(
-            `Not enough SOL. Balance: ${(solBalance + wSolBalance) / LAMPORTS_PER_SOL} SOL, required: ${params.amount} SOL`
-          );
-        }
-
-        // Calculate how much SOL to wrap
-        const diffLamports = amountInLamports - wSolBalance;
-        if (diffLamports > 0) {
-          console.log(
-            `[buyTokens] Preparing transaction to wrap ${diffLamports / LAMPORTS_PER_SOL} SOL to wSOL`
-          );
-          wrapTx = await wrapSol(
-            connection,
-            diffLamports,
-            userPublicKey,
-            backendPayer
-          );
-        }
-      }
-
-      // Validate wSOL account has or will have sufficient balance
-      if (!wrapTx && wSolBalance < amountInLamports) {
-        throw new Error(
-          `Insufficient wSOL balance for operation. Has: ${wSolBalance / LAMPORTS_PER_SOL} SOL, needs: ${params.amount} SOL`
-        );
-      }
     } else {
-      // For non-SOL tokens, check if user has enough balance in token A
-      try {
-        const balance = await connection.getTokenAccountBalance(userTaA);
-        const tokenBalance = new BN(balance.value.amount).toNumber();
-        console.log(`[buyTokens] User token A balance: ${tokenBalance}`);
-
-        if (tokenBalance < amountLamports.toNumber()) {
-          throw new Error(
-            `Insufficient token balance. Has: ${tokenBalance}, needs: ${amountLamports.toNumber()}`
-          );
-        }
-      } catch (error: any) {
-        throw new Error(
-          `Failed to get token balance or token account doesn't exist: ${error.message}`
-        );
-      }
+      // For non-SOL tokens, check balance
+      await checkNonSolTokenBalance(connection, userTaA, amountLamports);
     }
-    // --- End wSOL handling ---
 
-    console.log(
-      `Fetching quote for buying with ${params.amount} SOL (${amountLamports.toString()} lamports)`
-    );
-    console.log({
-      mintA: mintA.toString(),
-      mintB: mintB.toString(),
-      user: owner.toString(),
-      owner: owner.toString(),
-      amount: amountLamports.toString(),
-    });
-
+    // Create Anchor program instance
     const provider = new anchor.AnchorProvider(
       connection,
       dummyWallet,
@@ -241,21 +283,8 @@ export async function buyTokens(
     );
     const program = new anchor.Program<Amm>(ammIdl as Amm, provider);
 
+    // Create buy instruction
     const buyParams = { amount: amountLamports, limit: new BN(0) };
-    console.log("Creating buy instruction with params:", buyParams);
-    console.log("Accounts for buy:", {
-      owner: owner.toString(),
-      user: userPublicKey.toString(),
-      mintA: mintA.toString(),
-      mintB: mintB.toString(),
-      userTaA: userTaA.toString(),
-      userTaB: userTaB.toString(),
-      tokenProgramA: mintA.equals(NATIVE_MINT)
-        ? TOKEN_PROGRAM_ID.toString()
-        : TOKEN_PROGRAM_ID.toString(),
-      tokenProgramB: TOKEN_2022_PROGRAM_ID.toString(),
-    });
-
     const buyIx = await program.methods
       .buy(buyParams)
       .accounts({
@@ -265,36 +294,34 @@ export async function buyTokens(
         mintB,
         userTaA,
         userTaB,
-        tokenProgramA: mintA.equals(NATIVE_MINT)
-          ? TOKEN_PROGRAM_ID
-          : TOKEN_PROGRAM_ID,
-        tokenProgramB: TOKEN_2022_PROGRAM_ID,
+        tokenProgramA,
+        tokenProgramB,
       })
       .instruction();
 
+    // Build transaction
     let tx = transactionBuilder();
     const signer = createNoopSigner(fromWeb3JsPublicKey(userPublicKey));
 
-    if (wrapTx && wrapTx[0]) {
-      tx = tx.add({
-        instruction: fromWeb3JsInstruction(wrapTx[0]),
-        signers: [signer],
-        bytesCreatedOnChain: 0,
+    // Add wrap instructions if needed
+    if (wrapTx) {
+      wrapTx.forEach((instruction) => {
+        tx = tx.add({
+          instruction: fromWeb3JsInstruction(instruction),
+          signers: [signer],
+          bytesCreatedOnChain: 0,
+        });
       });
     }
-    if (wrapTx && wrapTx[1]) {
-      tx = tx.add({
-        instruction: fromWeb3JsInstruction(wrapTx[1]),
-        signers: [signer],
-        bytesCreatedOnChain: 0,
-      });
-    }
+
+    // Add buy instruction
     tx = tx.add({
       instruction: fromWeb3JsInstruction(buyIx),
       signers: [signer],
       bytesCreatedOnChain: 0,
     });
 
+    // Sign and serialize transaction
     umi.use(signerIdentity(signer));
     const buyTx = await tx
       .useV0()
@@ -313,9 +340,11 @@ export async function buyTokens(
       console.error("Transaction Logs:", error.logs);
     }
     if (error instanceof Error) {
-      console.error("Error Name:", error.name);
-      console.error("Error Message:", error.message);
-      console.error("Error Stack:", error.stack);
+      console.error("Error Details:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
     }
     throw new Error(`Failed to prepare buy transaction: ${error.message}`);
   }

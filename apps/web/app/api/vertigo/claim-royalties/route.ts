@@ -1,4 +1,9 @@
-import { createConnection, claimRoyalties } from "@/lib/vertigo";
+import { createConnection } from "@/lib/vertigo";
+import {
+  claimPoolRoyalties,
+  verifyPoolExists,
+  verifyTokenAccountExists,
+} from "@/lib/vertigo/vertigo-claim";
 import {
   ActionPostResponse,
   ACTIONS_CORS_HEADERS,
@@ -55,21 +60,11 @@ export async function POST(req: NextRequest) {
     const connection = await createConnection();
 
     // Verify the pool exists
-    try {
-      const poolInfo = await connection.getAccountInfo(
-        new PublicKey(poolAddress)
-      );
-      if (!poolInfo) {
-        return new Response(
-          JSON.stringify({
-            error: "Invalid pool address: Pool does not exist",
-          }),
-          { status: 400, headers }
-        );
-      }
-    } catch (error) {
+    if (!(await verifyPoolExists(connection, poolAddress))) {
       return new Response(
-        JSON.stringify({ error: "Failed to verify pool address" }),
+        JSON.stringify({
+          error: "Invalid pool address: Pool does not exist",
+        }),
         { status: 400, headers }
       );
     }
@@ -88,26 +83,19 @@ export async function POST(req: NextRequest) {
 
     console.log(`Using receiver token account: ${receiverTaA}`);
 
-    // Try to get token account info to verify it exists
-    try {
-      const accountInfo = await connection.getAccountInfo(
-        new PublicKey(receiverTaA)
+    // Verify the token account exists
+    if (!(await verifyTokenAccountExists(connection, receiverTaA))) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Token account doesn't exist. Please create an associated token account first.",
+        }),
+        { status: 400, headers }
       );
-      if (!accountInfo) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Token account doesn't exist. Please create an associated token account first.",
-          }),
-          { status: 400, headers }
-        );
-      }
-    } catch (error) {
-      console.error("Error checking token account:", error);
     }
 
-    // Claim royalties
-    const signature = await claimRoyalties(connection, {
+    // Claim royalties using the new function
+    const signature = await claimPoolRoyalties(connection, {
       poolAddress,
       mintA,
       receiverTaA,

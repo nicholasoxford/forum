@@ -9,12 +9,14 @@
     "clean": "rm -rf node_modules .turbo"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.2.0",
     "@libsql/client": "^0.15.4",
-    "@libsql/linux-x64-gnu": "^0.5.8",
-    "@libsql/linux-arm64-gnu": "^0.5.8",
-    "@libsql/darwin-x64": "^0.5.8",
     "@libsql/darwin-arm64": "^0.5.8",
+    "@libsql/darwin-x64": "^0.5.8",
+    "@libsql/linux-arm64-gnu": "^0.5.8",
+    "@libsql/linux-x64-gnu": "^0.5.8",
     "@paralleldrive/cuid2": "^2.2.2",
+    "@workspace/db": "workspace:*",
     "dotenv": "^16.3.1",
     "drizzle-orm": "^0.42.0",
     "elysia": "latest"
