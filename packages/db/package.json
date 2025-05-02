@@ -24,9 +24,5 @@
     "@types/node": "^20.0.0",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
   }
 }
