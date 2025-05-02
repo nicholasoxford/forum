@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/src/db";
-import { pools, tokens } from "@/src/db/schema";
+import { getDb, pools, tokens } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 /**
@@ -23,6 +22,7 @@ export async function GET(
     }
 
     // Get token information
+    const db = getDb();
     const token = await db.query.tokens.findFirst({
       where: eq(tokens.tokenMintAddress, tokenMint),
     });

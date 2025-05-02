@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/src/db";
-import { pools } from "@/src/db/schema";
+import { getDb, pools } from "@workspace/db";
 import { createConnection } from "@/lib/vertigo";
 import { sellTokens } from "@/lib/vertigo/vertigo-sell";
 import { eq } from "drizzle-orm";
@@ -39,6 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = getDb();
     // Get pool information from database
     const poolInfo = await db.query.pools.findFirst({
       where: eq(pools.tokenMintAddress, tokenMintAddress),

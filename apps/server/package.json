@@ -1,6 +1,7 @@
 {
   "name": "@workspace/server",
   "version": "1.0.0",
+  "types": "src/index.d.ts",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "build": "bun build --target bun src/index.ts",

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/src/db";
-import { groupChats } from "@/src/db/schema";
+import { getDb, groupChats } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 // GET /api/my-group-chats?walletAddress=<string>
@@ -16,6 +15,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const db = getDb();
     const chats = await db
       .select()
       .from(groupChats)

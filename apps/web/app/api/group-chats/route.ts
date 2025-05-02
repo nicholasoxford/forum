@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/src/db";
-import { groupChats, users, tokens } from "@/src/db/schema";
-import { sql } from "drizzle-orm";
+import { groupChats, users, tokens, getDb } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 /**
@@ -42,7 +40,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
+    const db = getDb();
     // 1. Ensure the user (creator) exists in the `users` table (idempotent)
     await db
       .insert(users)

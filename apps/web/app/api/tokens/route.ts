@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/src/db";
-import { tokens, users, groupChats, pools } from "@/src/db/schema";
+import { getDb, tokens, users, groupChats, pools } from "@workspace/db";
 import { createTelegramChannel } from "@/lib/telegram";
 import { createConnection, launchPool } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
@@ -62,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Ensure the user (creator) exists in the `users` table (idempotent)
+    const db = getDb();
     await db
       .insert(users)
       .values({
@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const db = getDb();
     // Query all tokens and join with their respective pools
     const allTokens = await db
       .select({
