@@ -24,9 +24,11 @@
         "@libsql/linux-x64-gnu": "^0.5.8",
         "@paralleldrive/cuid2": "^2.2.2",
         "@workspace/db": "workspace:*",
+        "bs58": "^6.0.0",
         "dotenv": "^16.3.1",
         "drizzle-orm": "^0.42.0",
         "elysia": "latest",
+        "tweetnacl": "^1.0.3",
       },
       "devDependencies": {
         "@types/node": "^20.0.0",

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { server } from "@/utils/elysia";
 
 // Import Telegram client components with dynamic import to avoid SSR issues
 const TelegramAuth = dynamic(() => import("../../components/telegram-auth"), {
@@ -9,6 +10,15 @@ const TelegramAuth = dynamic(() => import("../../components/telegram-auth"), {
 
 export default function TestPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const data = await server.db.get();
+      setData(data);
+    };
+    fetchData();
+  }, []);
 
   useEffect(() => {
     // Check if there's a session in localStorage
@@ -28,6 +38,9 @@ export default function TestPage() {
 
   return (
     <div className="p-6 max-w-md mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Test Database</h1>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
+      <br />
       <h1 className="text-2xl font-bold mb-6">Telegram Integration Test</h1>
 
       {!isAuthenticated ? (

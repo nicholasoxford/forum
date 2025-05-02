@@ -1,9 +1,10 @@
 {
   "name": "@workspace/server",
   "version": "1.0.0",
+  "type": "module",
   "types": "src/index.d.ts",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun --env-file=.env.local run --watch src/index.ts",
     "build": "tsc --noEmit",
     "start": "NODE_ENV=production bun src/index.ts",
     "lint": "eslint . --ext .ts",
@@ -18,9 +19,11 @@
     "@libsql/linux-x64-gnu": "^0.5.8",
     "@paralleldrive/cuid2": "^2.2.2",
     "@workspace/db": "workspace:*",
+    "bs58": "^6.0.0",
     "dotenv": "^16.3.1",
     "drizzle-orm": "^0.42.0",
-    "elysia": "latest"
+    "elysia": "latest",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "bun-types": "latest",
