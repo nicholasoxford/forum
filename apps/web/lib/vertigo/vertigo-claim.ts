@@ -4,9 +4,9 @@ import {
   getOrCreateAssociatedTokenAccount,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { ClaimRoyaltiesParams } from "@/types/vertigo";
-import { getPayerKeypair, createConnection } from ".";
+import { getPayerKeypair } from ".";
 import { VertigoSDK } from "@vertigo-amm/vertigo-sdk/";
 
 /**

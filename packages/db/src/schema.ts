@@ -141,3 +141,34 @@ export const feeDistributions = sqliteTable("fee_distributions", {
 
 export type InsertFeeDistribution = typeof feeDistributions.$inferInsert;
 export type SelectFeeDistribution = typeof feeDistributions.$inferSelect;
+
+// --- Transactions ---
+// Records all transactions performed on the platform, including creating pools, buying/selling tokens,
+// claiming royalties, and distributing fees.
+export const transactions = sqliteTable("transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type").notNull(), // "create_pool", "buy", "sell", "claim", "distribute_fees"
+  status: text("status").notNull().default("pending"), // "pending", "confirmed", "failed"
+  transactionSignature: text("transaction_signature"), // Solana transaction signature when available
+  userWalletAddress: text("user_wallet_address")
+    .notNull()
+    .references(() => users.walletAddress), // User who initiated the transaction
+  tokenMintAddress: text("token_mint_address").references(
+    () => tokens.tokenMintAddress
+  ), // Related token (if applicable)
+  poolAddress: text("pool_address").references(() => pools.poolAddress), // Related pool (if applicable)
+  amountA: text("amount_a"), // Amount of token A (usually SOL) involved in the transaction
+  amountB: text("amount_b"), // Amount of token B (usually the project token) involved
+  mintA: text("mint_a"), // Mint address of token A
+  mintB: text("mint_b"), // Mint address of token B
+  feePaid: text("fee_paid"), // Fee paid in the transaction (if any)
+  metadata: text("metadata"), // Additional JSON data specific to the transaction type
+  errorMessage: text("error_message"), // Error details if transaction failed
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+  confirmedAt: integer("confirmed_at", { mode: "timestamp" }),
+});
+
+export type InsertTransaction = typeof transactions.$inferInsert;
+export type SelectTransaction = typeof transactions.$inferSelect;

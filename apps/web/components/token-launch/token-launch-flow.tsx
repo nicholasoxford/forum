@@ -30,7 +30,6 @@ export const TokenLaunchFlow = () => {
   const [description, setDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uri, setUri] = useState("");
 
   // Token economics state
   const [decimals, setDecimals] = useState<number>(DEFAULT_DECIMALS);

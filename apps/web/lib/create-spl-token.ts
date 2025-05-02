@@ -2,7 +2,6 @@ import {
   Umi,
   generateSigner,
   Signer,
-  amountToNumber,
   TransactionBuilder,
 } from "@metaplex-foundation/umi";
 import {
@@ -35,6 +34,7 @@ import {
   pack,
   TokenMetadata,
 } from "@solana/spl-token-metadata";
+import { server } from "@/utils/elysia";
 
 // Token configuration interface
 export interface SplTokenConfig {
@@ -50,6 +50,44 @@ export interface SplTokenConfig {
 }
 
 /**
+ * Waits for a transaction to be confirmed
+ */
+async function waitForTransaction(
+  signature: string,
+  timeoutMs = 60000,
+  intervalMs = 2000
+): Promise<{
+  success: boolean;
+  status: string;
+  error?: any;
+  confirmation?: any;
+}> {
+  try {
+    const response = await server.solana["wait-for-signature"].post({
+      signature,
+      timeout: timeoutMs,
+      interval: intervalMs,
+    });
+    if (response.error || !response.data.success) {
+      throw new Error("Transaction not confirmed");
+    }
+
+    return {
+      success: true,
+      status: "confirmed",
+      confirmation: response.data.confirmation,
+    };
+  } catch (error) {
+    console.error("Error waiting for transaction confirmation:", error);
+    return {
+      success: false,
+      status: "error",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
  * Creates a Token 2022 mint with transfer fee extension, metadata, and optional initial mint.
  * Returns the mint signer.
  */
@@ -58,6 +96,8 @@ export async function createSplToken(
   config: SplTokenConfig
 ): Promise<{
   mint: Signer;
+  signature: string;
+  success: boolean;
 }> {
   if (!umi.identity.publicKey) {
     throw new Error("Wallet not connected");
@@ -235,9 +275,23 @@ export async function createSplToken(
     `Transaction Link: https://explorer.solana.com/tx/${signature}?cluster=devnet`
   );
 
-  // TODO: Add confirmation logic if needed
+  // Wait for the transaction to be confirmed
+  console.log("Waiting for transaction confirmation...");
+  const confirmationResult = await waitForTransaction(signature);
+
+  if (confirmationResult.success) {
+    console.log("Transaction confirmed successfully!");
+  } else {
+    console.error(
+      "Transaction failed or timed out:",
+      confirmationResult.status,
+      confirmationResult.error
+    );
+  }
 
   return {
     mint: mint,
+    signature,
+    success: confirmationResult.success,
   };
 }

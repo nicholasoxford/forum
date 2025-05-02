@@ -1,4 +1,9 @@
 {
-  "extends": "@workspace/typescript-config/base.json"
+  "extends": "@workspace/typescript-config/base.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "exclude": ["apps/server/src/index.d.ts"]
 }
-

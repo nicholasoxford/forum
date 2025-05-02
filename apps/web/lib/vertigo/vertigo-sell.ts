@@ -48,10 +48,10 @@ async function createUnwrapSolInstruction(userPublicKey: PublicKey) {
       [], // Additional signers (none needed)
       TOKEN_PROGRAM_ID // Token program ID
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating unwrap SOL instruction:", error);
     throw new Error(
-      `Failed to create unwrap SOL instruction: ${error.message}`
+      `Failed to create unwrap SOL instruction: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -244,15 +244,15 @@ export async function sellTokens(
 
       console.log("Returning serialized transaction.");
       return serializedSellTxAsString;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error getting token balance:", error);
       throw new Error(
-        `Failed to get token balance or token account doesn't exist: ${error.message}`
+        `Failed to get token balance or token account doesn't exist: ${error instanceof Error ? error.message : String(error)}`
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error selling tokens to Vertigo pool:", error);
-    if (error.logs) {
+    if (error instanceof Error && "logs" in error) {
       console.error("Transaction Logs:", error.logs);
     }
     if (error instanceof Error) {
@@ -260,6 +260,8 @@ export async function sellTokens(
       console.error("Error Message:", error.message);
       console.error("Error Stack:", error.stack);
     }
-    throw new Error(`Failed to prepare sell transaction: ${error.message}`);
+    throw new Error(
+      `Failed to prepare sell transaction: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
