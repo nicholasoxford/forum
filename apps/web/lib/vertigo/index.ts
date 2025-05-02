@@ -38,8 +38,11 @@ export function getPayerKeypair(): Keypair {
 function createVertigoSDK(connection: Connection): VertigoSDK {
   const payer = getPayerKeypair();
   const wallet = new anchor.Wallet(payer);
+  const provider = new anchor.AnchorProvider(connection, wallet, {
+    commitment: "confirmed",
+  });
   try {
-    return new VertigoSDK(connection, wallet);
+    return new VertigoSDK(provider);
   } catch (error) {
     console.error("Error creating VertigoSDK:", error);
     throw error;
