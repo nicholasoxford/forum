@@ -3,9 +3,25 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import { server } from "@/utils/elysia";
 
 interface TokenBalanceProps {
   tokenMint: string;
+}
+
+interface TokenAmount {
+  amount: string;
+  decimals: number;
+  uiAmount: number;
+  uiAmountString: string;
+}
+
+interface TokenBalanceResponse {
+  wallet: string;
+  mint: string;
+  balance: TokenAmount;
+  tokenAccount: string;
+  exists: boolean;
 }
 
 export function TokenBalance({ tokenMint }: TokenBalanceProps) {
@@ -22,24 +38,24 @@ export function TokenBalance({ tokenMint }: TokenBalanceProps) {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(
-          `/api/token-balance?wallet=${publicKey.toString()}&mint=${tokenMint}`
-        );
+        const result = await server.tokens.balance.get({
+          query: {
+            wallet: publicKey.toString(),
+            mint: tokenMint,
+          },
+        });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch token balance");
-        }
+        // Type assertion for the response
+        const responseData = result as unknown as TokenBalanceResponse;
 
-        const data = await response.json();
-
-        if (data.exists) {
-          setBalance(data.balance.uiAmountString);
+        if (responseData.exists) {
+          setBalance(responseData.balance.uiAmountString);
         } else {
           setBalance("0");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching token balance:", err);
-        setError("Failed to load balance");
+        setError(err?.message || "Failed to load balance");
         setBalance(null);
       } finally {
         setLoading(false);
