@@ -11,6 +11,7 @@ COPY packages/typescript-config/package.json ./packages/typescript-config/packag
 COPY packages/db/package.json ./packages/db/package.json
 COPY packages/solana/package.json ./packages/solana/package.json
 COPY packages/transactions/package.json ./packages/transactions/package.json
+COPY packages/types/package.json ./packages/types/package.json
 COPY packages/vertigo/package.json ./packages/vertigo/package.json
 COPY apps/server/package.json ./apps/server/package.json
 
@@ -23,6 +24,7 @@ COPY packages/typescript-config ./packages/typescript-config
 COPY packages/db ./packages/db
 COPY packages/solana ./packages/solana
 COPY packages/transactions ./packages/transactions
+COPY packages/types ./packages/types
 COPY packages/vertigo ./packages/vertigo
 COPY apps/server ./apps/server
 
