@@ -69,7 +69,7 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
     "/wait-for-signature",
     async ({ body }) => {
       const { HELIUS_API_KEY } = env;
-      const { signature, timeout = 60000, interval = 2000 } = body;
+      const { signature, timeout = 60000, interval = 200 } = body;
 
       if (!HELIUS_API_KEY) {
         return {
@@ -83,8 +83,10 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
 
       while (Date.now() - startTime < timeout) {
         try {
+          console.log("Checking signature status...");
+          console.log(signature);
           const response = await fetch(
-            `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`,
+            `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`,
             {
               method: "POST",
               headers: {
@@ -100,6 +102,8 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
           );
 
           const result = await response.json();
+          console.log("Result received");
+          console.log(result);
           const status = result.result?.value?.[0];
 
           // If we have a status and it's not null, transaction is confirmed
@@ -112,6 +116,7 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
                 confirmation: status,
               };
             } else {
+              console.log("Transaction confirmed");
               return {
                 success: true,
                 status: "confirmed",
@@ -127,7 +132,7 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
           // Continue checking despite error
         }
       }
-
+      console.log("Timeout reached");
       // Timeout reached
       return {
         success: false,

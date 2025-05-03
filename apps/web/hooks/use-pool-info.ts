@@ -15,6 +15,8 @@ export interface PoolInfo {
     metadataUri: string;
     targetMarketCap: string;
   };
+  poolAddress?: string;
+  pool?: any; // Adding pool property that's being checked in the component
   error?: string;
 }
 

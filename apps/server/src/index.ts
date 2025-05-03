@@ -19,48 +19,6 @@ const app = new Elysia()
   .use(solanaRouter)
   .use(tokensRouter)
   .get("/", () => "Hello Elysia")
-  .post(
-    "/buy",
-    async ({ body }) => {
-      const { tokenMintAddress, userAddress, amount } = body;
-      const db = getDb();
-      const pool = await db.query.pools.findFirst({
-        where: eq(pools.tokenMintAddress, tokenMintAddress),
-      });
-    },
-    {
-      body: t.Object({
-        tokenMintAddress: t.String(),
-        userAddress: t.String(),
-        amount: t.Number(),
-      }),
-    }
-  )
-  .get("/db", async () => {
-    const db = getDb();
-    const startTime = performance.now();
-    const result = await db.select().from(pools);
-    const endTime = performance.now();
-    const queryTimeMs = endTime - startTime;
-
-    return {
-      queryTimeMs,
-      data: result,
-    };
-  })
-  // Get users
-  .get("/api/users", async () => {
-    try {
-      const db = getDb();
-      const allUsers = await db.select().from(users);
-      return allUsers;
-    } catch (error) {
-      return new Response(JSON.stringify({ error: "Failed to fetch users" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  })
 
   .listen(port);
 

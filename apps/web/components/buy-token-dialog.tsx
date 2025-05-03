@@ -137,22 +137,21 @@ export function BuyTokenDialog({
                 </span>
               </div>
 
-              {poolInfo?.pool && (
+              {poolInfo?.poolAddress && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-zinc-500">Pool</span>
                   <span className="font-mono text-xs">
-                    {poolInfo.pool.poolAddress.slice(0, 6)}...
-                    {poolInfo.pool.poolAddress.slice(-6)}
+                    {poolInfo.poolAddress.substring(0, 6)}...
+                    {poolInfo.poolAddress.substring(
+                      poolInfo.poolAddress.length - 6
+                    )}
                   </span>
                 </div>
               )}
             </div>
 
             <DialogFooter>
-              <Button
-                onClick={handleBuyToken}
-                disabled={loading || !poolInfo?.pool}
-              >
+              <Button onClick={handleBuyToken} disabled={loading || !poolInfo}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
