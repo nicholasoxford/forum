@@ -13,6 +13,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
     async ({ set }) => {
       try {
         const db = getDb();
+        const timeStart = performance.now();
         // Query all tokens and join with their respective pools
         const allTokens = await db
           .select({
@@ -21,7 +22,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
           })
           .from(tokens)
           .leftJoin(pools, eq(tokens.tokenMintAddress, pools.tokenMintAddress));
-
+        const timeEnd = performance.now();
         // Format the response
         const formattedTokens = allTokens.map(({ token, pool }) => ({
           tokenMintAddress: token.tokenMintAddress,
