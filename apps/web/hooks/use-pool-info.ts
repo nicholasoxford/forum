@@ -56,7 +56,7 @@ export function usePoolInfo() {
       }
 
       if (data) {
-        setPoolInfo(data);
+        setPoolInfo({ success: true, token: data });
         setStatus({ type: null, message: "" });
         return data;
       }
