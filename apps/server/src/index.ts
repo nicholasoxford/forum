@@ -1,7 +1,5 @@
 import { Elysia, t } from "elysia";
 import cors from "@elysiajs/cors";
-import { getDb, pools, users } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import { telegramRouter } from "./router/telegram";
 import { s3Router } from "./router/s3";
 import { solanaRouter } from "./router/solana";

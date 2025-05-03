@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Token } from "@/types/token";
+import { server } from "@/utils/elysia";
 
 // Get the API URL from environment variables
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
 
 export function useTokens(showOnlyWithPools = true) {
   const [tokens, setTokens] = useState<Token[]>([]);
@@ -14,20 +14,16 @@ export function useTokens(showOnlyWithPools = true) {
       setLoading(true);
       setError(null);
 
-      // Fetch tokens from the server's new endpoint
-      const response = await fetch(`${API_URL}/tokens`);
-      const data = await response.json();
+      // Fetch tokens from the server's endpoint
+      const { data } = await server.tokens.index.get();
 
-      if (data.success) {
-        const allTokens = data.tokens || [];
+      if (data) {
         // If showOnlyWithPools is true, filter out tokens without pools
         const filteredTokens = showOnlyWithPools
-          ? allTokens.filter((token: Token) => token.pool !== null)
-          : allTokens;
+          ? data.filter((token) => token.pool !== null)
+          : data;
 
         setTokens(filteredTokens);
-      } else {
-        throw new Error(data.error || "Failed to fetch tokens");
       }
     } catch (err: any) {
       console.error("Error fetching tokens:", err);

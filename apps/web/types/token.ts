@@ -4,16 +4,15 @@ export interface Token {
   tokenSymbol: string;
   decimals: number;
   transferFeeBasisPoints: number;
-  metadataUri: string | null;
+  metadataUri: string;
   creatorWalletAddress: string;
-  createdAt: string;
   pool: {
     poolAddress: string;
     ownerAddress: string;
     mintA: string;
     mintB: string;
-    shift: string;
-    initialTokenReserves: string;
+    shift: number;
+    initialTokenReserves: number;
     royaltiesBps: number;
   } | null;
 }

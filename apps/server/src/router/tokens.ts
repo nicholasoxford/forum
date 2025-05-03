@@ -8,59 +8,75 @@ import {
 } from "@solana/spl-token";
 
 export const tokensRouter = new Elysia({ prefix: "/tokens" })
-  .get("/", async () => {
-    try {
-      const db = getDb();
-      // Query all tokens and join with their respective pools
-      const allTokens = await db
-        .select({
-          token: tokens,
-          pool: pools,
+  .get(
+    "/",
+    async ({ set }) => {
+      try {
+        const db = getDb();
+        // Query all tokens and join with their respective pools
+        const allTokens = await db
+          .select({
+            token: tokens,
+            pool: pools,
+          })
+          .from(tokens)
+          .leftJoin(pools, eq(tokens.tokenMintAddress, pools.tokenMintAddress));
+
+        // Format the response
+        const formattedTokens = allTokens.map(({ token, pool }) => ({
+          tokenMintAddress: token.tokenMintAddress,
+          tokenName: token.tokenName,
+          tokenSymbol: token.tokenSymbol,
+          decimals: token.decimals,
+          transferFeeBasisPoints: token.transferFeeBasisPoints,
+          metadataUri: token.metadataUri || "",
+          creatorWalletAddress: token.creatorWalletAddress,
+          pool: pool
+            ? {
+                poolAddress: pool.poolAddress,
+                ownerAddress: pool.ownerAddress,
+                mintA: pool.mintA,
+                mintB: pool.mintB,
+                shift: Number(pool.shift),
+                initialTokenReserves: Number(pool.initialTokenReserves),
+                royaltiesBps: Number(pool.royaltiesBps || 0),
+              }
+            : null,
+        }));
+
+        return formattedTokens;
+      } catch (error: any) {
+        console.error("[tokens GET]", error);
+        set.status = 500;
+        throw new Error(error?.message || "Failed to fetch tokens");
+      }
+    },
+    {
+      response: t.Array(
+        t.Object({
+          tokenMintAddress: t.String(),
+          tokenName: t.String(),
+          tokenSymbol: t.String(),
+          decimals: t.Number(),
+          transferFeeBasisPoints: t.Number(),
+          metadataUri: t.String(),
+          creatorWalletAddress: t.String(),
+          pool: t.Union([
+            t.Object({
+              poolAddress: t.String(),
+              ownerAddress: t.String(),
+              mintA: t.String(),
+              mintB: t.String(),
+              shift: t.Number(),
+              initialTokenReserves: t.Number(),
+              royaltiesBps: t.Number(),
+            }),
+            t.Null(),
+          ]),
         })
-        .from(tokens)
-        .leftJoin(pools, eq(tokens.tokenMintAddress, pools.tokenMintAddress));
-
-      // Format the response
-      const formattedTokens = allTokens.map(({ token, pool }) => ({
-        // Token info
-        tokenMintAddress: token.tokenMintAddress,
-        tokenName: token.tokenName,
-        tokenSymbol: token.tokenSymbol,
-        decimals: token.decimals,
-        transferFeeBasisPoints: token.transferFeeBasisPoints,
-        metadataUri: token.metadataUri,
-        creatorWalletAddress: token.creatorWalletAddress,
-        createdAt: token.createdAt,
-
-        // Pool info
-        pool: pool
-          ? {
-              poolAddress: pool.poolAddress,
-              ownerAddress: pool.ownerAddress,
-              mintA: pool.mintA,
-              mintB: pool.mintB,
-              shift: pool.shift,
-              initialTokenReserves: pool.initialTokenReserves,
-              royaltiesBps: pool.royaltiesBps,
-            }
-          : null,
-      }));
-
-      return {
-        success: true,
-        tokens: formattedTokens,
-      };
-    } catch (error: any) {
-      console.error("[tokens GET]", error);
-      return new Response(
-        JSON.stringify({
-          error: "Internal Server Error",
-          message: error?.message,
-        }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      ),
     }
-  })
+  )
   .get(
     "/:tokenMint/pool",
     async ({ params }) => {
@@ -87,17 +103,14 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
         });
 
         return {
-          success: true,
-          token: {
-            tokenMintAddress: token.tokenMintAddress,
-            tokenSymbol: token.tokenSymbol,
-            tokenName: token.tokenName,
-            decimals: token.decimals,
-            transferFeeBasisPoints: token.transferFeeBasisPoints,
-            maximumFee: String(token.maximumFee || "0"),
-            metadataUri: token.metadataUri || "",
-            targetMarketCap: String(token.targetMarketCap || "0"),
-          },
+          tokenMintAddress: token.tokenMintAddress,
+          tokenSymbol: token.tokenSymbol,
+          tokenName: token.tokenName,
+          decimals: token.decimals,
+          transferFeeBasisPoints: token.transferFeeBasisPoints,
+          maximumFee: String(token.maximumFee || "0"),
+          metadataUri: token.metadataUri || "",
+          targetMarketCap: String(token.targetMarketCap || "0"),
         };
       } catch (error: any) {
         console.error("[tokens/:tokenMint/pool GET]", error);
@@ -109,17 +122,14 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
         tokenMint: t.String(),
       }),
       response: t.Object({
-        success: t.Boolean(),
-        token: t.Object({
-          tokenMintAddress: t.String(),
-          tokenSymbol: t.String(),
-          tokenName: t.String(),
-          decimals: t.Number(),
-          transferFeeBasisPoints: t.Number(),
-          maximumFee: t.String(),
-          metadataUri: t.String(),
-          targetMarketCap: t.String(),
-        }),
+        tokenMintAddress: t.String(),
+        tokenSymbol: t.String(),
+        tokenName: t.String(),
+        decimals: t.Number(),
+        transferFeeBasisPoints: t.Number(),
+        maximumFee: t.String(),
+        metadataUri: t.String(),
+        targetMarketCap: t.String(),
       }),
     }
   )
