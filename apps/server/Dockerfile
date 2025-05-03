@@ -41,16 +41,11 @@ RUN bun build \
     --outfile /app/server \
     ./apps/server/src/index.ts
 
-# We can't use distroless for libsql native modules
 FROM debian:bookworm-slim
 
 WORKDIR /app
 
 COPY --from=build /app/server server
-
-
-# Copy the .env file if needed (or use environment variables in production)
-# COPY --from=build /app/apps/server/.env.production .env
 
 ENV NODE_ENV=production
 
