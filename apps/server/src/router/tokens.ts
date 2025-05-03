@@ -23,6 +23,8 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
           .from(tokens)
           .leftJoin(pools, eq(tokens.tokenMintAddress, pools.tokenMintAddress));
         const timeEnd = performance.now();
+        // log in ms
+        console.log(`[tokens GET] ${timeEnd - timeStart}ms`);
         // Format the response
         const formattedTokens = allTokens.map(({ token, pool }) => ({
           tokenMintAddress: token.tokenMintAddress,
