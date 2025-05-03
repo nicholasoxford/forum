@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { telegramRouter } from "./router/telegram";
 import { s3Router } from "./router/s3";
 import { solanaRouter } from "./router/solana";
+import { tokensRouter } from "./router/tokens";
 
 // Initialize the database
 
@@ -16,6 +17,7 @@ const app = new Elysia()
   .use(telegramRouter)
   .use(s3Router)
   .use(solanaRouter)
+  .use(tokensRouter)
   .get("/", () => "Hello Elysia")
   .post(
     "/buy",

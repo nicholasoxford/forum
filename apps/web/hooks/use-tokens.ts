@@ -1,19 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Token } from "@/types/token";
+
+// Get the API URL from environment variables
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5050";
 
 export function useTokens(showOnlyWithPools = true) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTokens = async () => {
+  const fetchTokens = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("/api/tokens");
+
+      // Fetch tokens from the server's new endpoint
+      const response = await fetch(`${API_URL}/tokens`);
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (data.success) {
         const allTokens = data.tokens || [];
         // If showOnlyWithPools is true, filter out tokens without pools
         const filteredTokens = showOnlyWithPools
@@ -30,11 +35,11 @@ export function useTokens(showOnlyWithPools = true) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showOnlyWithPools]);
 
   useEffect(() => {
     fetchTokens();
-  }, [showOnlyWithPools]);
+  }, [fetchTokens]);
 
   return {
     tokens,

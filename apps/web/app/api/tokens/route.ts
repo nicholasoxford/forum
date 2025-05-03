@@ -3,7 +3,6 @@ import { getDb, tokens, users, groupChats, pools } from "@workspace/db";
 import { createTelegramChannel } from "@/lib/telegram";
 import { createConnection, launchPool } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { eq } from "drizzle-orm";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 
 /**
@@ -164,62 +163,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("[tokens POST]", error);
-    return NextResponse.json(
-      { error: "Internal Server Error", message: error?.message },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/tokens
- *
- * Returns all tokens with their relevant pool information
- */
-export async function GET(request: NextRequest) {
-  try {
-    const db = getDb();
-    // Query all tokens and join with their respective pools
-    const allTokens = await db
-      .select({
-        token: tokens,
-        pool: pools,
-      })
-      .from(tokens)
-      .leftJoin(pools, eq(tokens.tokenMintAddress, pools.tokenMintAddress));
-
-    // Format the response
-    const formattedTokens = allTokens.map(({ token, pool }) => ({
-      // Token info
-      tokenMintAddress: token.tokenMintAddress,
-      tokenName: token.tokenName,
-      tokenSymbol: token.tokenSymbol,
-      decimals: token.decimals,
-      transferFeeBasisPoints: token.transferFeeBasisPoints,
-      metadataUri: token.metadataUri,
-      creatorWalletAddress: token.creatorWalletAddress,
-      createdAt: token.createdAt,
-
-      // Pool info
-      pool: pool
-        ? {
-            poolAddress: pool.poolAddress,
-            ownerAddress: pool.ownerAddress,
-            mintA: pool.mintA,
-            mintB: pool.mintB,
-            shift: pool.shift,
-            initialTokenReserves: pool.initialTokenReserves,
-            royaltiesBps: pool.royaltiesBps,
-          }
-        : null,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      tokens: formattedTokens,
-    });
-  } catch (error: any) {
-    console.error("[tokens GET]", error);
     return NextResponse.json(
       { error: "Internal Server Error", message: error?.message },
       { status: 500 }
