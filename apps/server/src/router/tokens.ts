@@ -62,6 +62,68 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
     }
   })
   .get(
+    "/:tokenMint/pool",
+    async ({ params }) => {
+      try {
+        const { tokenMint } = params;
+
+        if (!tokenMint) {
+          throw new Error("Token mint address is required");
+        }
+
+        // Get token information
+        const db = getDb();
+        const token = await db.query.tokens.findFirst({
+          where: eq(tokens.tokenMintAddress, tokenMint),
+        });
+
+        if (!token) {
+          throw new Error("Token not found");
+        }
+
+        // Get pool information
+        const pool = await db.query.pools.findFirst({
+          where: eq(pools.tokenMintAddress, tokenMint),
+        });
+
+        return {
+          success: true,
+          token: {
+            tokenMintAddress: token.tokenMintAddress,
+            tokenSymbol: token.tokenSymbol,
+            tokenName: token.tokenName,
+            decimals: token.decimals,
+            transferFeeBasisPoints: token.transferFeeBasisPoints,
+            maximumFee: String(token.maximumFee || "0"),
+            metadataUri: token.metadataUri || "",
+            targetMarketCap: String(token.targetMarketCap || "0"),
+          },
+        };
+      } catch (error: any) {
+        console.error("[tokens/:tokenMint/pool GET]", error);
+        throw new Error(error?.message || "Failed to fetch token pool");
+      }
+    },
+    {
+      params: t.Object({
+        tokenMint: t.String(),
+      }),
+      response: t.Object({
+        success: t.Boolean(),
+        token: t.Object({
+          tokenMintAddress: t.String(),
+          tokenSymbol: t.String(),
+          tokenName: t.String(),
+          decimals: t.Number(),
+          transferFeeBasisPoints: t.Number(),
+          maximumFee: t.String(),
+          metadataUri: t.String(),
+          targetMarketCap: t.String(),
+        }),
+      }),
+    }
+  )
+  .get(
     "/balance",
     async ({ query }) => {
       try {
