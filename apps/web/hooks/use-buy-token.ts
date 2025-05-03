@@ -124,23 +124,20 @@ export function useBuyToken() {
         ].post({
           signature: signatureString,
         });
-        const confirmation = await umi.rpc.confirmTransaction(signature, {
-          strategy: {
-            type: "blockhash",
-            ...(await umi.rpc.getLatestBlockhash()),
-          },
-        });
-
-        if (confirmation.value.err) {
-          throw new Error(
-            `Transaction confirmed but failed: ${confirmation.value.err}`
-          );
+        if (confirmationResponse?.success) {
+          setStatus({
+            type: "success",
+            message: "Transaction successful! You've purchased tokens.",
+          });
+        } else {
+          const errorMessage =
+            typeof error === "string"
+              ? error
+              : error?.value?.message ||
+                JSON.stringify(error) ||
+                "Transaction failed";
+          throw new Error(errorMessage);
         }
-
-        setStatus({
-          type: "success",
-          message: "Transaction successful! You've purchased tokens.",
-        });
         return true;
       } catch (error: any) {
         console.error("Transaction error:", error);
