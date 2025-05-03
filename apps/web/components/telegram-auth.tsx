@@ -83,53 +83,68 @@ const TelegramAuth: React.FC<TelegramAuthProps> = ({ onAuthSuccess }) => {
         };
       };
 
-      // Sign in with proper error handling
-      await client.start({
-        phoneNumber: async () => phoneNumber,
-        password: password ? userAuthParamCallback(password) : undefined,
-        phoneCode: userAuthParamCallback(phoneCode),
-        onError: (err: Error) => {
-          console.error("Login error in onError:", err);
-          const errorMessage = err.message || "Unknown error";
+      try {
+        // First try to sign in with just the code
+        await client.start({
+          phoneNumber: async () => phoneNumber,
+          phoneCode: userAuthParamCallback(phoneCode),
+          // If password is already provided in the code step, use it
+          password: password
+            ? userAuthParamCallback(password)
+            : async () => {
+                // If we get here, it means 2FA is required but no password was provided
+                console.log("2FA password required");
+                setStep("password");
+                setError("Please enter your 2FA password");
+                setIsLoading(false);
+                // Return an empty string to fail this attempt
+                // We'll retry with the actual password in the next step
+                throw new Error("PASSWORD_REQUIRED");
+              },
+          onError: (err: Error) => {
+            console.error("Login error in onError:", err);
+            throw err; // Propagate to outer catch
+          },
+        });
+
+        // If we get here, we succeeded without 2FA
+        const sessionString = client.session.save();
+        localStorage.setItem("telegram-session", sessionString);
+        onAuthSuccess();
+      } catch (innerErr) {
+        // Handle PASSWORD_REQUIRED error differently than other errors
+        if (innerErr instanceof Error) {
+          const errorMessage = innerErr.message || "Unknown error";
 
           if (errorMessage.includes("PASSWORD_REQUIRED")) {
-            console.log("2FA required, switching to password step");
-            setStep("password");
-            setError("Please enter your 2FA password");
-            setIsLoading(false);
-          } else if (errorMessage.includes("A wait of")) {
-            // Rate limiting error
-            const waitTimeMatch = errorMessage.match(
-              /A wait of (\d+) seconds is required/
-            );
-            const waitTime =
-              waitTimeMatch && waitTimeMatch[1]
-                ? parseInt(waitTimeMatch[1])
-                : null;
-            const minutes = waitTime ? Math.floor(waitTime / 60) : null;
-            const seconds = waitTime ? waitTime % 60 : null;
-            const timeMessage =
-              minutes !== null && seconds !== null
-                ? `${minutes} minutes and ${seconds} seconds`
-                : `some time`;
+            // If we're already on the password step and have a password, retry with it
+            if (step === "password" && password) {
+              await client.start({
+                phoneNumber: async () => phoneNumber,
+                phoneCode: userAuthParamCallback(phoneCode),
+                password: userAuthParamCallback(password),
+                onError: (err: Error) => {
+                  console.error("Password login error:", err);
+                  throw err;
+                },
+              });
 
-            setError(
-              `Rate limit exceeded. Please wait ${timeMessage} before trying again.`
-            );
-            setIsLoading(false);
+              // If we get here, the password succeeded
+              const sessionString = client.session.save();
+              localStorage.setItem("telegram-session", sessionString);
+              onAuthSuccess();
+            } else {
+              // Just show password field and wait for user to enter it
+              throw innerErr; // Propagate to outer catch to handle UI update
+            }
           } else {
-            setError(errorMessage);
-            setIsLoading(false);
+            // Other errors, propagate
+            throw innerErr;
           }
-        },
-      });
-
-      // Save session to localStorage
-      const sessionString = client.session.save();
-      localStorage.setItem("telegram-session", sessionString);
-
-      // Notify parent component
-      onAuthSuccess();
+        } else {
+          throw innerErr;
+        }
+      }
     } catch (err) {
       console.error("Error signing in:", err);
       if (err instanceof Error) {
@@ -227,10 +242,33 @@ const TelegramAuth: React.FC<TelegramAuthProps> = ({ onAuthSuccess }) => {
               disabled={isLoading}
             />
           </div>
+
+          {/* Optional 2FA password field - will be shown immediately if we know the account requires 2FA */}
+          <div className="space-y-2 mt-4">
+            <label
+              htmlFor="twoFactorPassword"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Two-Factor Authentication Password (if required)
+            </label>
+            <input
+              id="twoFactorPassword"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter 2FA password if your account uses it"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-gray-900 placeholder-gray-500"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-gray-500">
+              If your account has 2FA enabled, enter your password here
+            </p>
+          </div>
+
           <button
             onClick={handleSignIn}
             disabled={isLoading || !phoneCode.trim()}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded disabled:opacity-50"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded disabled:opacity-50 mt-4"
           >
             {isLoading ? "Verifying..." : "Verify Code"}
           </button>
