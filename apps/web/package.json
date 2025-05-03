@@ -34,7 +34,9 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@vertigo-amm/vertigo-sdk": "^0.1.9",
     "@workspace/db": "workspace:*",
+    "@workspace/solana": "workspace:*",
     "@workspace/server": "workspace:*",
+    "@workspace/vertigo": "workspace:*",
     "@workspace/ui": "workspace:*",
     "bs58": "^6.0.0",
     "dotenv": "^16.5.0",
@@ -60,6 +62,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@workspace/eslint-config": "workspace:^",
+    "@workspace/types": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
     "typescript": "^5.7.3"
   }

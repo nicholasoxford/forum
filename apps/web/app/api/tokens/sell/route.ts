@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, pools } from "@workspace/db";
 import { createConnection } from "@/lib/vertigo";
-import { sellTokens } from "@/lib/vertigo/vertigo-sell";
+import { sellTokens } from "@workspace/vertigo";
 import { eq } from "drizzle-orm";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";

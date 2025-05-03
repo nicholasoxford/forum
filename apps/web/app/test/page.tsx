@@ -36,7 +36,7 @@ export default function TestPage() {
             Telegram Authentication
           </h2>
           <p className="text-sm text-gray-600 mb-4">
-            You'll need to get your API ID and API Hash from{" "}
+            You&apos;ll need to get your API ID and API Hash from{" "}
             <a
               href="https://my.telegram.org/apps"
               target="_blank"

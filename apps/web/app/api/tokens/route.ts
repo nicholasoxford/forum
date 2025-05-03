@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, tokens, users, groupChats, pools } from "@workspace/db";
 import { createTelegramChannel } from "@/lib/telegram";
-import { createConnection, launchPool } from "@/lib/vertigo";
+import { createConnection } from "@/lib/vertigo";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { base58 } from "@metaplex-foundation/umi/serializers";
+import { launchPool } from "@workspace/vertigo";
 
 /**
  * POST /api/tokens

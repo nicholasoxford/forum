@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/vertigo",
+  "name": "@workspace/types",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,15 +9,12 @@
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
-    "@metaplex-foundation/umi": "^1.2.0",
-    "@metaplex-foundation/umi-bundle-defaults": "^1.2.0"
+    "@solana/web3.js": "^1.98.2"
   },
   "devDependencies": {
     "bun-types": "latest",
     "typescript": "^5.0.0",
     "@workspace/eslint-config": "workspace:*",
-    "@workspace/solana": "workspace:*",
-    "@workspace/types": "workspace:*",
     "@workspace/typescript-config": "workspace:*"
   }
 }

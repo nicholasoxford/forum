@@ -28,8 +28,8 @@ import {
   fromWeb3JsPublicKey,
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { base64 } from "@metaplex-foundation/umi/serializers";
-import { BuyTokensParams } from "@/types/vertigo";
-import { getPayerKeypair } from ".";
+import { BuyTokensParams } from "@workspace/types";
+import { getPayerKeypair } from "@workspace/solana";
 
 /**
  * Wraps SOL to wSOL

@@ -22,8 +22,8 @@ import {
   fromWeb3JsPublicKey,
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { base64 } from "@metaplex-foundation/umi/serializers";
-import { SellTokensParams } from "@/types/vertigo";
-import { getPayerKeypair } from ".";
+import { SellTokensParams } from "@workspace/types";
+import { getPayerKeypair } from "@workspace/solana";
 
 /**
  * Creates instruction to unwrap wSOL to SOL

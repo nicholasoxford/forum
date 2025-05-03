@@ -1,4 +1,5 @@
-import { createConnection, launchPool } from "@/lib/vertigo";
+import { createConnection } from "@/lib/vertigo";
+import { launchPool } from "@workspace/vertigo";
 import {
   ActionPostResponse,
   ACTIONS_CORS_HEADERS,
