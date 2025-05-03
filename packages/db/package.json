@@ -7,22 +7,23 @@
   "types": "./src/index.ts",
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push:sqlite",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "drizzle-kit generate --config=./src/drizzle.config.ts",
+    "db:push": "drizzle-kit push --config=./src/drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config=./src/drizzle.config.ts"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.4",
     "@paralleldrive/cuid2": "^2.2.2",
+    "csv-parse": "^5.6.0",
     "dotenv": "^16.3.1",
-    "drizzle-orm": "^0.42.0"
+    "drizzle-orm": "^0.43.1",
+    "mysql2": "^3.14.1"
   },
   "devDependencies": {
-    "bun-types": "latest",
-    "drizzle-kit": "^0.20.6",
-    "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
     "@workspace/eslint-config": "workspace:*",
-    "@workspace/typescript-config": "workspace:*"
+    "@workspace/typescript-config": "workspace:*",
+    "bun-types": "latest",
+    "drizzle-kit": "^0.31.1",
+    "typescript": "^5.0.0"
   }
 }

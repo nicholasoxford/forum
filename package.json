@@ -10,13 +10,18 @@
     "build": "bun --bun run turbo build",
     "dev": "bun --bun --env-file=apps/web/.env.local run turbo dev",
     "lint": "turbo lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push:mysql",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate": "bun run packages/db/src/migrate.ts"
   },
   "packageManager": "bun@1.2.11",
   "devDependencies": {
+    "@workspace/db": "workspace:*",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
-    "@workspace/db": "workspace:*",
+    "drizzle-kit": "^0.31.1",
     "prettier": "^3.5.1",
     "turbo": "^2.4.2",
     "typescript": "5.7.3"

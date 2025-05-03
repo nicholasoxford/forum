@@ -21,3 +21,9 @@ processes = ['app']
 memory = '1gb'
 cpu_kind = 'shared'
 cpus = 1
+
+[env]
+MYSQL_HOST = "mysql-bold-flower-4970.internal"
+MYSQL_PORT = "3306"
+MYSQL_USER = "non_root_user"
+MYSQL_DATABASE = "some_db"

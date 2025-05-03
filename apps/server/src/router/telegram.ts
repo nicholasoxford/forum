@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
-import { createClient } from "@libsql/client";
 import { getDb, groupChats } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
@@ -88,29 +87,12 @@ export const telegramRouter = new Elysia({ prefix: "/telegram" })
         // Use local database if possible
         const db = getDb();
         const chatGroup = await db.query.groupChats.findFirst({
-          where: eq(groupChats.telegramChatId, chatId.toString()),
+          where: (fields) => eq(fields.telegramChatId, chatId.toString()),
         });
 
         if (chatGroup) {
           mint = chatGroup.tokenMintAddress;
           requiredHoldings = chatGroup.requiredHoldings;
-        } else if (TURSO_URL && TURSO_AUTH_TOKEN) {
-          // Fallback to Turso client if needed
-          const client = createClient({
-            url: TURSO_URL,
-            authToken: TURSO_AUTH_TOKEN,
-          });
-          const res = await client.execute(
-            "SELECT token_mint_address, required_holdings FROM group_chats WHERE telegram_chat_id = ? LIMIT 1",
-            [chatId.toString()]
-          );
-          if (res.rows.length) {
-            const row = res.rows[0];
-            if (row) {
-              mint = row.token_mint_address as string;
-              requiredHoldings = row.required_holdings as string;
-            }
-          }
         }
       } catch (err) {
         console.error("Database query error", err);
@@ -171,52 +153,4 @@ export const telegramRouter = new Elysia({ prefix: "/telegram" })
         signature: t.Array(t.Number()),
       }),
     }
-  )
-
-  // Test database connection
-  .get("/test-db", async () => {
-    const { TURSO_URL, TURSO_AUTH_TOKEN } = env;
-
-    try {
-      // Try local DB first
-      const db = getDb();
-      const localGroups = await db.query.groupChats.findMany({
-        limit: 10,
-      });
-
-      // If we have Turso credentials, also test that connection
-      let tursoResult = null;
-      if (TURSO_URL && TURSO_AUTH_TOKEN) {
-        const client = createClient({
-          url: TURSO_URL,
-          authToken: TURSO_AUTH_TOKEN,
-        });
-        const result = await client.execute(
-          "SELECT * FROM group_chats LIMIT 10"
-        );
-        tursoResult = result.rows;
-      }
-
-      return {
-        success: true,
-        message: "Database connection successful",
-        data: {
-          localDb: localGroups,
-          tursoDb: tursoResult,
-        },
-      };
-    } catch (error) {
-      console.error("Database test error:", error);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Database connection failed",
-          error: error instanceof Error ? error.message : String(error),
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-  });
+  );

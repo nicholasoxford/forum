@@ -47,7 +47,7 @@ FROM debian:bookworm-slim
 WORKDIR /app
 
 COPY --from=build /app/server server
-COPY --from=build /app/node_modules/@libsql /app/node_modules/@libsql
+
 
 # Copy the .env file if needed (or use environment variables in production)
 # COPY --from=build /app/apps/server/.env.production .env

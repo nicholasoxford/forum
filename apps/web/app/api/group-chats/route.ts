@@ -49,8 +49,12 @@ export async function POST(request: NextRequest) {
         username: creatorUsername,
         telegramUserId: creatorTelegramUserId,
       })
-      // Ignore if user already exists
-      .onConflictDoNothing({ target: users.walletAddress });
+      .onDuplicateKeyUpdate({
+        set: {
+          username: creatorUsername,
+          telegramUserId: creatorTelegramUserId,
+        },
+      });
 
     // 2. Get token information from the database
     const tokenInfo = await db.query.tokens.findFirst({

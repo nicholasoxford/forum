@@ -1,0 +1,41 @@
+# fly.toml app configuration file generated for mysql-bold-flower-4970 on 2025-05-03T08:29:31-06:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mysql-bold-flower-4970'
+primary_region = 'iad'
+
+[build]
+image = 'mysql:8.4'
+
+
+[[vm]]
+memory = '2gb'
+cpu_kind = 'shared'
+cpus = 1
+
+
+# The [processes] section is different for 8+, 8.4, and 5.7. Use the one that matches your version.
+# Use the following for versions 8 to 8.3:
+# [processes]
+#  app = """--datadir /data/mysql \
+#    --default-authentication-plugin mysql_native_password"""
+
+# Uncomment and use the following for 8.4:
+[processes]
+app = """--datadir /data/mysql \
+   --mysql-native-password=ON"""
+
+# Uncomment and use the following for 5.7:
+# [processes]
+#  app = "--datadir /data/mysql"
+
+# Add the following sections for all versions
+[mounts]
+source = "mysqldata"
+destination = "/data"
+
+[env]
+MYSQL_DATABASE = "some_db"
+MYSQL_USER = "non_root_user"

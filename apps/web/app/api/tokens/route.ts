@@ -69,8 +69,12 @@ export async function POST(request: NextRequest) {
         username: creatorUsername,
         telegramUserId: creatorTelegramUserId,
       })
-      // Ignore if user already exists
-      .onConflictDoNothing({ target: users.walletAddress });
+      .onDuplicateKeyUpdate({
+        set: {
+          username: creatorUsername,
+          telegramUserId: creatorTelegramUserId,
+        },
+      });
 
     // 2. Insert the new token
     await db.insert(tokens).values({

@@ -1,25 +1,33 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 import * as schema from "./schema";
 
 // Create a function to initialize the database client
-export function createDb(config?: { url?: string; authToken?: string }) {
+export function createDb(config?: {
+  host?: string;
+  port?: number;
+  user?: string;
+  password?: string;
+  database?: string;
+}) {
   // Get database connection details from environment variables or config
-  const url = config?.url || process.env.TURSO_CONNECTION_URL;
-  const authToken = config?.authToken || process.env.TURSO_AUTH_TOKEN;
+  const host = config?.host || process.env.MYSQL_HOST || "localhost";
+  const port = config?.port || Number(process.env.MYSQL_PORT) || 3306;
+  const user = config?.user || process.env.MYSQL_USER || "non_root_user";
+  const password = config?.password || process.env.MYSQL_PASSWORD || "password";
+  const database = config?.database || process.env.MYSQL_DATABASE || "some_db";
 
-  if (!url) {
-    throw new Error("Database URL is required");
-  }
-
-  // Create LibSQL client
-  const client = createClient({
-    url,
-    authToken,
+  // Create MySQL connection pool
+  const pool = mysql.createPool({
+    host,
+    port,
+    user,
+    password,
+    database,
   });
 
   // Create Drizzle database instance with schema
-  return drizzle(client, { schema });
+  return drizzle(pool, { schema, mode: "default" });
 }
 
 // Create a default db instance using environment variables
@@ -31,5 +39,6 @@ export function getDb() {
   }
   return _db;
 }
+
 // Export schema for use elsewhere in the application
 export * from "./schema";

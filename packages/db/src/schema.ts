@@ -1,19 +1,22 @@
 import {
-  sqliteTable,
-  text,
-  integer,
+  mysqlTable,
+  varchar,
+  int,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+  boolean,
+  foreignKey,
+} from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
 // --- Users ---
 // Represents users interacting with the platform, identified by their Solana wallet address.
-export const users = sqliteTable("users", {
-  walletAddress: text("wallet_address").primaryKey(), // Solana wallet address
-  username: text("username"), // Optional display name
-  telegramUserId: text("telegram_user_id"), // Optional Telegram user ID for bot interactions
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
+export const users = mysqlTable("users", {
+  walletAddress: varchar("wallet_address", { length: 255 }).primaryKey(), // Solana wallet address
+  username: varchar("username", { length: 255 }), // Optional display name
+  telegramUserId: varchar("telegram_user_id", { length: 255 }), // Optional Telegram user ID for bot interactions
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
 });
 
@@ -22,67 +25,104 @@ export type SelectUser = typeof users.$inferSelect;
 
 // --- Tokens ---
 // Represents all tokens created through the platform.
-export const tokens = sqliteTable("tokens", {
-  tokenMintAddress: text("token_mint_address").primaryKey(), // Solana token mint address
-  tokenSymbol: text("token_symbol").notNull(),
-  tokenName: text("token_name").notNull(),
-  decimals: integer("decimals").notNull(),
-  transferFeeBasisPoints: integer("transfer_fee_basis_points").notNull(),
-  maximumFee: text("maximum_fee").notNull(), // Store as string to preserve precision
-  metadataUri: text("metadata_uri"),
-  targetMarketCap: text("target_market_cap"), // Target market cap as string to preserve precision
-  creatorWalletAddress: text("creator_wallet_address")
-    .notNull()
-    .references(() => users.walletAddress),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
+export const tokens = mysqlTable(
+  "tokens",
+  {
+    tokenMintAddress: varchar("token_mint_address", {
+      length: 255,
+    }).primaryKey(), // Solana token mint address
+    tokenSymbol: varchar("token_symbol", { length: 50 }).notNull(),
+    tokenName: varchar("token_name", { length: 255 }).notNull(),
+    decimals: int("decimals").notNull(),
+    transferFeeBasisPoints: int("transfer_fee_basis_points").notNull(),
+    maximumFee: varchar("maximum_fee", { length: 255 }).notNull(), // Store as string to preserve precision
+    metadataUri: varchar("metadata_uri", { length: 255 }),
+    targetMarketCap: varchar("target_market_cap", { length: 255 }), // Target market cap as string to preserve precision
+    creatorWalletAddress: varchar("creator_wallet_address", {
+      length: 255,
+    }).notNull(),
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.creatorWalletAddress],
+      foreignColumns: [users.walletAddress],
+      name: "tokens_creator_fk",
+    }),
+  ]
+);
 
 export type InsertToken = typeof tokens.$inferInsert;
 export type SelectToken = typeof tokens.$inferSelect;
 
 // --- Pools ---
 // Represents Vertigo AMM pools for tokens
-export const pools = sqliteTable("pools", {
-  poolAddress: text("pool_address").primaryKey(), // Vertigo pool address
-  tokenMintAddress: text("token_mint_address")
-    .notNull()
-    .references(() => tokens.tokenMintAddress), // Associated token
-  ownerAddress: text("owner_address").notNull(), // Pool owner address
-  mintA: text("mint_a").notNull(), // Usually SOL mint
-  mintB: text("mint_b").notNull(), // Token mint (same as tokenMintAddress)
-  shift: text("shift").notNull(), // Virtual SOL amount
-  initialTokenReserves: text("initial_token_reserves").notNull(),
-  royaltiesBps: integer("royalties_bps"), // Royalty basis points
-  transactionSignature: text("transaction_signature"), // Creation transaction
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
+export const pools = mysqlTable(
+  "pools",
+  {
+    poolAddress: varchar("pool_address", { length: 255 }).primaryKey(), // Vertigo pool address
+    tokenMintAddress: varchar("token_mint_address", { length: 255 }).notNull(),
+    ownerAddress: varchar("owner_address", { length: 255 }).notNull(), // Pool owner address
+    mintA: varchar("mint_a", { length: 255 }).notNull(), // Usually SOL mint
+    mintB: varchar("mint_b", { length: 255 }).notNull(), // Token mint (same as tokenMintAddress)
+    shift: varchar("shift", { length: 255 }).notNull(), // Virtual SOL amount
+    initialTokenReserves: varchar("initial_token_reserves", {
+      length: 255,
+    }).notNull(),
+    royaltiesBps: int("royalties_bps"), // Royalty basis points
+    transactionSignature: varchar("transaction_signature", { length: 255 }), // Creation transaction
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tokenMintAddress],
+      foreignColumns: [tokens.tokenMintAddress],
+      name: "pools_token_fk",
+    }),
+  ]
+);
 
 export type InsertPool = typeof pools.$inferInsert;
 export type SelectPool = typeof pools.$inferSelect;
 
 // --- GroupChats / Tokens ---
 // Represents the core entity: a token gating access to a specific group chat.
-export const groupChats = sqliteTable("group_chats", {
-  tokenMintAddress: text("token_mint_address")
-    .primaryKey()
-    .references(() => tokens.tokenMintAddress), // Solana token mint address
-  telegramChatId: text("telegram_chat_id").notNull().unique(), // Associated Telegram chat ID
-  telegramUsername: text("telegram_username"), // Telegram username for the chat
-  tokenSymbol: text("token_symbol").notNull(),
-  tokenName: text("token_name").notNull(),
-  // Store potentially large/precise token amounts as text
-  requiredHoldings: text("required_holdings").notNull(), // Minimum token amount (as string) for access/rewards
-  creatorWalletAddress: text("creator_wallet_address").references(
-    () => users.walletAddress
-  ), // Wallet that created this chat/token
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
+export const groupChats = mysqlTable(
+  "group_chats",
+  {
+    tokenMintAddress: varchar("token_mint_address", {
+      length: 255,
+    }).primaryKey(),
+    telegramChatId: varchar("telegram_chat_id", { length: 255 })
+      .notNull()
+      .unique(), // Associated Telegram chat ID
+    telegramUsername: varchar("telegram_username", { length: 255 }), // Telegram username for the chat
+    tokenSymbol: varchar("token_symbol", { length: 50 }).notNull(),
+    tokenName: varchar("token_name", { length: 255 }).notNull(),
+    // Store potentially large/precise token amounts as text
+    requiredHoldings: varchar("required_holdings", { length: 255 }).notNull(), // Minimum token amount (as string) for access/rewards
+    creatorWalletAddress: varchar("creator_wallet_address", { length: 255 }),
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tokenMintAddress],
+      foreignColumns: [tokens.tokenMintAddress],
+      name: "groupchats_token_fk",
+    }),
+    foreignKey({
+      columns: [table.creatorWalletAddress],
+      foreignColumns: [users.walletAddress],
+      name: "groupchats_creator_fk",
+    }),
+  ]
+);
 
 export type InsertGroupChat = typeof groupChats.$inferInsert;
 export type SelectGroupChat = typeof groupChats.$inferSelect;
@@ -90,31 +130,37 @@ export type SelectGroupChat = typeof groupChats.$inferSelect;
 // --- Memberships ---
 // Tracks user membership eligibility in group chats based on token holdings.
 // This might be populated/updated by a background process checking on-chain balances.
-export const memberships = sqliteTable(
+export const memberships = mysqlTable(
   "memberships",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    userWalletAddress: text("user_wallet_address")
-      .notNull()
-      .references(() => users.walletAddress),
-    tokenMintAddress: text("token_mint_address")
-      .notNull()
-      .references(() => groupChats.tokenMintAddress),
-    isEligible: integer("is_eligible", { mode: "boolean" })
-      .default(false)
-      .notNull(), // Currently meets holding requirement
-    lastCheckedAt: integer("last_checked_at", { mode: "timestamp" }), // When eligibility was last verified
-    joinedTelegramAt: integer("joined_telegram_at", { mode: "timestamp" }), // When user joined the Telegram chat (if tracked)
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .default(sql`(unixepoch())`)
+    id: int("id").autoincrement().primaryKey(),
+    userWalletAddress: varchar("user_wallet_address", {
+      length: 255,
+    }).notNull(),
+    tokenMintAddress: varchar("token_mint_address", { length: 255 }).notNull(),
+    isEligible: boolean("is_eligible").default(false).notNull(), // Currently meets holding requirement
+    lastCheckedAt: timestamp("last_checked_at"), // When eligibility was last verified
+    joinedTelegramAt: timestamp("joined_telegram_at"), // When user joined the Telegram chat (if tracked)
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
   },
-  (table) => ({
-    userChatUnique: uniqueIndex("user_chat_unique_idx").on(
+  (table) => [
+    uniqueIndex("user_chat_unique_idx").on(
       table.userWalletAddress,
       table.tokenMintAddress
     ),
-  })
+    foreignKey({
+      columns: [table.userWalletAddress],
+      foreignColumns: [users.walletAddress],
+      name: "memberships_user_fk",
+    }),
+    foreignKey({
+      columns: [table.tokenMintAddress],
+      foreignColumns: [groupChats.tokenMintAddress],
+      name: "memberships_token_fk",
+    }),
+  ]
 );
 
 export type InsertMembership = typeof memberships.$inferInsert;
@@ -122,22 +168,30 @@ export type SelectMembership = typeof memberships.$inferSelect;
 
 // --- FeeDistributions ---
 // Logs the periodic distribution of collected transfer fees.
-export const feeDistributions = sqliteTable("fee_distributions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  tokenMintAddress: text("token_mint_address")
-    .notNull()
-    .references(() => groupChats.tokenMintAddress),
-  distributionTime: integer("distribution_time", {
-    mode: "timestamp",
-  }).notNull(),
-  // Store potentially large/precise fee amounts as text
-  totalFeesDistributed: text("total_fees_distributed").notNull(), // Amount of fee token (as string) distributed
-  numberOfRecipients: integer("number_of_recipients").notNull(),
-  transactionSignature: text("transaction_signature"), // Optional: Signature of the distribution transaction
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-});
+export const feeDistributions = mysqlTable(
+  "fee_distributions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    tokenMintAddress: varchar("token_mint_address", { length: 255 }).notNull(),
+    distributionTime: timestamp("distribution_time").notNull(),
+    // Store potentially large/precise fee amounts as text
+    totalFeesDistributed: varchar("total_fees_distributed", {
+      length: 255,
+    }).notNull(), // Amount of fee token (as string) distributed
+    numberOfRecipients: int("number_of_recipients").notNull(),
+    transactionSignature: varchar("transaction_signature", { length: 255 }), // Optional: Signature of the distribution transaction
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tokenMintAddress],
+      foreignColumns: [groupChats.tokenMintAddress],
+      name: "fee_dist_token_fk",
+    }),
+  ]
+);
 
 export type InsertFeeDistribution = typeof feeDistributions.$inferInsert;
 export type SelectFeeDistribution = typeof feeDistributions.$inferSelect;
@@ -145,30 +199,48 @@ export type SelectFeeDistribution = typeof feeDistributions.$inferSelect;
 // --- Transactions ---
 // Records all transactions performed on the platform, including creating pools, buying/selling tokens,
 // claiming royalties, and distributing fees.
-export const transactions = sqliteTable("transactions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  type: text("type").notNull(), // "create_pool", "buy", "sell", "claim", "distribute_fees"
-  status: text("status").notNull().default("pending"), // "pending", "confirmed", "failed"
-  transactionSignature: text("transaction_signature"), // Solana transaction signature when available
-  userWalletAddress: text("user_wallet_address")
-    .notNull()
-    .references(() => users.walletAddress), // User who initiated the transaction
-  tokenMintAddress: text("token_mint_address").references(
-    () => tokens.tokenMintAddress
-  ), // Related token (if applicable)
-  poolAddress: text("pool_address").references(() => pools.poolAddress), // Related pool (if applicable)
-  amountA: text("amount_a"), // Amount of token A (usually SOL) involved in the transaction
-  amountB: text("amount_b"), // Amount of token B (usually the project token) involved
-  mintA: text("mint_a"), // Mint address of token A
-  mintB: text("mint_b"), // Mint address of token B
-  feePaid: text("fee_paid"), // Fee paid in the transaction (if any)
-  metadata: text("metadata"), // Additional JSON data specific to the transaction type
-  errorMessage: text("error_message"), // Error details if transaction failed
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .default(sql`(unixepoch())`)
-    .notNull(),
-  confirmedAt: integer("confirmed_at", { mode: "timestamp" }),
-});
+export const transactions = mysqlTable(
+  "transactions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    type: varchar("type", { length: 50 }).notNull(), // "create_pool", "buy", "sell", "claim", "distribute_fees"
+    status: varchar("status", { length: 20 }).notNull().default("pending"), // "pending", "confirmed", "failed"
+    transactionSignature: varchar("transaction_signature", { length: 255 }), // Solana transaction signature when available
+    userWalletAddress: varchar("user_wallet_address", {
+      length: 255,
+    }).notNull(),
+    tokenMintAddress: varchar("token_mint_address", { length: 255 }),
+    poolAddress: varchar("pool_address", { length: 255 }),
+    amountA: varchar("amount_a", { length: 255 }), // Amount of token A (usually SOL) involved in the transaction
+    amountB: varchar("amount_b", { length: 255 }), // Amount of token B (usually the project token) involved
+    mintA: varchar("mint_a", { length: 255 }), // Mint address of token A
+    mintB: varchar("mint_b", { length: 255 }), // Mint address of token B
+    feePaid: varchar("fee_paid", { length: 255 }), // Fee paid in the transaction (if any)
+    metadata: varchar("metadata", { length: 1024 }), // Additional JSON data specific to the transaction type
+    errorMessage: varchar("error_message", { length: 1024 }), // Error details if transaction failed
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    confirmedAt: timestamp("confirmed_at"),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userWalletAddress],
+      foreignColumns: [users.walletAddress],
+      name: "tx_user_fk",
+    }),
+    foreignKey({
+      columns: [table.tokenMintAddress],
+      foreignColumns: [tokens.tokenMintAddress],
+      name: "tx_token_fk",
+    }),
+    foreignKey({
+      columns: [table.poolAddress],
+      foreignColumns: [pools.poolAddress],
+      name: "tx_pool_fk",
+    }),
+  ]
+);
 
 export type InsertTransaction = typeof transactions.$inferInsert;
 export type SelectTransaction = typeof transactions.$inferSelect;
