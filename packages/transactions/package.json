@@ -1,15 +1,12 @@
 {
-  "name": "@workspace/forum-transactions",
+  "name": "@workspace/transactions",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "lint": "eslint . --max-warnings 0",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push:sqlite",
-    "db:studio": "drizzle-kit studio"
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "@libsql/client": "^0.15.4",
