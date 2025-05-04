@@ -52,6 +52,7 @@ export const tokens = mysqlTable(
       foreignColumns: [users.walletAddress],
       name: "tokens_creator_fk",
     }),
+    index("tokens_mint_idx").on(table.tokenMintAddress),
   ]
 );
 

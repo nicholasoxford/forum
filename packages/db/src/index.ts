@@ -18,9 +18,9 @@ export function createDb(config?: {
   const password = config?.password || process.env.MYSQL_PASSWORD || "password";
   const database = config?.database || process.env.MYSQL_DATABASE || "some_db";
   const connectionLimit =
-    config?.connectionLimit || Number(process.env.MYSQL_CONNECTION_LIMIT) || 10;
+    config?.connectionLimit || Number(process.env.MYSQL_CONNECTION_LIMIT) || 20; // Increased default pool size
 
-  // Create MySQL connection pool with connection limits
+  // Create MySQL connection pool with optimized settings
   const pool = mysql.createPool({
     host,
     port,
@@ -29,9 +29,18 @@ export function createDb(config?: {
     database,
     connectionLimit,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000, // 10 seconds
+    keepAliveInitialDelay: 5000, // 5 seconds
     waitForConnections: true,
     queueLimit: 0,
+    // Performance optimization flags
+    namedPlaceholders: true,
+    connectTimeout: 10000,
+    // Extra connection options to improve performance
+    ssl: process.env.MYSQL_SSL === "true" ? {} : undefined,
+    // Connection attributes for better monitoring
+    connectAttributes: {
+      program_name: "forum-app",
+    },
   });
 
   // Handle connection issues with a ping check
