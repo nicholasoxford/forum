@@ -1,0 +1,1 @@
+CREATE INDEX `pools_token_mint_idx` ON `pools` (`token_mint_address`);

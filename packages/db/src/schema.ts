@@ -6,6 +6,7 @@ import {
   uniqueIndex,
   boolean,
   foreignKey,
+  index,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
@@ -83,6 +84,7 @@ export const pools = mysqlTable(
       foreignColumns: [tokens.tokenMintAddress],
       name: "pools_token_fk",
     }),
+    index("pools_token_mint_idx").on(table.tokenMintAddress),
   ]
 );
 
