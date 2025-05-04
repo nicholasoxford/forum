@@ -9,7 +9,6 @@ export function createDb(config?: {
   user?: string;
   password?: string;
   database?: string;
-  connectionLimit?: number;
 }) {
   // Get database connection details from environment variables or config
   const host = config?.host || process.env.MYSQL_HOST || "localhost";
@@ -17,44 +16,15 @@ export function createDb(config?: {
   const user = config?.user || process.env.MYSQL_USER || "non_root_user";
   const password = config?.password || process.env.MYSQL_PASSWORD || "password";
   const database = config?.database || process.env.MYSQL_DATABASE || "some_db";
-  const connectionLimit =
-    config?.connectionLimit || Number(process.env.MYSQL_CONNECTION_LIMIT) || 20; // Increased default pool size
 
-  // Create MySQL connection pool with optimized settings
+  // Create MySQL connection pool
   const pool = mysql.createPool({
     host,
     port,
     user,
     password,
     database,
-    connectionLimit,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 5000, // 5 seconds
-    waitForConnections: true,
-    queueLimit: 0,
-    // Performance optimization flags
-    namedPlaceholders: true,
-    connectTimeout: 10000,
-    // Extra connection options to improve performance
-    ssl: process.env.MYSQL_SSL === "true" ? {} : undefined,
-    // Connection attributes for better monitoring
-    connectAttributes: {
-      program_name: "forum-app",
-    },
   });
-
-  // Handle connection issues with a ping check
-  const pingInterval = setInterval(async () => {
-    try {
-      const conn = await pool.getConnection();
-      conn.release();
-    } catch (err) {
-      console.error("Database connection error:", err);
-      // Try to re-establish the connection if needed
-      _db = undefined;
-      clearInterval(pingInterval);
-    }
-  }, 60000); // Check connection every minute
 
   // Create Drizzle database instance with schema
   return drizzle(pool, { schema, mode: "default" });
@@ -65,7 +35,6 @@ let _db: ReturnType<typeof createDb> | undefined;
 
 export function getDb() {
   if (!_db) {
-    console.log("Creating new database connection pool");
     _db = createDb();
   }
   return _db;

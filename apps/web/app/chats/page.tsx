@@ -9,11 +9,11 @@ import { ExternalLink, PlusCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function TokensPage() {
-  const { tokens, loading, error } = useTokens();
   const [selectedTokenMint, setSelectedTokenMint] = useState<
     string | undefined
   >();
   const router = useRouter();
+  const { tokens, loading, error } = useTokens();
 
   const handleSelectToken = (tokenMintAddress: string) => {
     setSelectedTokenMint(tokenMintAddress);

@@ -1,11 +1,11 @@
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
-import { instructionsRouter } from "./router/instructions";
-import { solanaRouter } from "./router/solana";
 import { telegramRouter } from "./router/telegram";
 import { s3Router } from "./router/s3";
+import { solanaRouter } from "./router/solana";
 import { tokensRouter } from "./router/tokens";
+import { instructionsRouter } from "./router/instructions";
 import { poolRouter } from "./router/pool";
 
 // Initialize the database
@@ -14,8 +14,6 @@ import { poolRouter } from "./router/pool";
 const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
 
 const app = new Elysia()
-
-  // Apply global CORS
   .use(cors())
   // Apply global Swagger documentation generation
   .use(swagger())
@@ -62,6 +60,7 @@ const app = new Elysia()
   .use(instructionsRouter)
   .use(poolRouter)
   .get("/", () => "Hello Elysia")
+
   .listen(port);
 
 console.log(

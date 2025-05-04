@@ -25,13 +25,7 @@ cpus = 1
 # Uncomment and use the following for 8.4:
 [processes]
 app = """--datadir /data/mysql \
-   --mysql-native-password=ON \
-   --innodb-buffer-pool-size=1G \
-   --innodb-buffer-pool-instances=2 \
-   --join-buffer-size=1M \
-   --table-open-cache=2000 \
-   --key-buffer-size=128M \
-   --performance-schema=ON"""
+   --mysql-native-password=ON"""
 
 # Uncomment and use the following for 5.7:
 # [processes]

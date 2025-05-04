@@ -31,25 +31,26 @@ COPY apps/server ./apps/server
 # Set environment variables
 ENV NODE_ENV=production
 
-# Build and compile the server
+# ~~Build and compile the server~~
+# WORKDIR /app
+# RUN bun build \
+#     --compile \
+#     --target node \
+#     --outfile /app/server \
+#     ./apps/server/src/index.ts
+
+# Use the same Bun image for the final stage to ensure Bun is available
+FROM oven/bun:1
+
 WORKDIR /app
-RUN bun build \
-    --compile \
-    --minify-whitespace \
-    --minify-syntax \
-    --target bun \
-    --outfile /app/server \
-    ./apps/server/src/index.ts
 
-FROM debian:bookworm-slim
-
-WORKDIR /app
-
-COPY --from=build /app/server server
+# Copy installed dependencies and source code from the build stage
+COPY --from=build /app /app
 
 ENV NODE_ENV=production
 
 # Use environment variable PORT with fallback to 3000
-CMD ["./server"]
+# Ensure the entry point path is correct relative to the WORKDIR
+CMD ["bun", "run", "./apps/server/src/index.ts"]
 
 EXPOSE 3000 
