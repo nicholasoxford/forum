@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Token } from "@/types/token";
+import { server } from "@/utils/elysia";
 
 export interface Pool {
   poolAddress: string;
@@ -28,12 +29,10 @@ export function usePools() {
       setLoading(true);
       setError(null);
 
-      // Fetch all tokens with pools
-      const response = await fetch("/api/tokens");
-      const data = await response.json();
+      const { data, error } = await server.tokens.index.get();
 
-      if (response.ok && data.success) {
-        const allTokens: Token[] = data.tokens || [];
+      if (!error && data) {
+        const allTokens: Token[] = data || [];
 
         // Filter tokens with pools where the connected wallet is the owner
         const ownerAddress = wallet.publicKey.toString();
@@ -56,7 +55,7 @@ export function usePools() {
 
         setPools(userPools);
       } else {
-        throw new Error(data.error || "Failed to fetch pools");
+        throw new Error(error?.value.message || "Failed to fetch pools");
       }
     } catch (err: any) {
       console.error("Error fetching pools:", err);
