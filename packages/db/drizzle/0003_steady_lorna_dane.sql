@@ -1,0 +1,1 @@
+CREATE INDEX `tokens_mint_idx` ON `tokens` (`token_mint_address`);

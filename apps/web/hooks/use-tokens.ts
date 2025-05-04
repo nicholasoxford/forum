@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Token } from "@/types/token";
 import { server } from "@/utils/elysia";
 
@@ -8,8 +8,13 @@ export function useTokens(showOnlyWithPools = true) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Use a ref to track if initial fetch has happened
+  const initialFetchDone = useRef(false);
 
   const fetchTokens = useCallback(async () => {
+    // Skip if we're already loading
+    if (loading) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -31,10 +36,14 @@ export function useTokens(showOnlyWithPools = true) {
     } finally {
       setLoading(false);
     }
-  }, [showOnlyWithPools]);
+  }, [showOnlyWithPools, loading]);
 
   useEffect(() => {
-    fetchTokens();
+    // Only fetch if we haven't done the initial fetch yet
+    if (!initialFetchDone.current) {
+      fetchTokens();
+      initialFetchDone.current = true;
+    }
   }, [fetchTokens]);
 
   return {
