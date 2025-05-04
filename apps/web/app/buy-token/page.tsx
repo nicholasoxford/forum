@@ -24,6 +24,7 @@ import { base64 } from "@metaplex-foundation/umi/serializers";
 import { useUmi } from "@/lib/umi";
 import { useTokens } from "@/hooks/use-tokens";
 import { TokenList } from "@/components/token-list";
+import { server } from "@/utils/elysia";
 
 export default function BuyTokenPage() {
   const umi = useUmi();
@@ -111,28 +112,17 @@ export default function BuyTokenPage() {
       setTxSignature(null);
       setStatus({ type: "info", message: "Preparing transaction..." });
 
-      // Call API to get transaction instructions
-      const response = await fetch("/api/tokens/buy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data: instructionsResponse, error: instructionsError } =
+        await server.instructions.buy.post({
           tokenMintAddress: tokenMint,
           userAddress: publicKey.toString(),
           amount: parseFloat(amount),
-        }),
-      });
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to prepare transaction");
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to prepare transaction");
+      if (instructionsError) {
+        throw new Error(
+          instructionsError.value.message || "Failed to prepare transaction"
+        );
       }
 
       // Process the serialized transaction
@@ -142,7 +132,7 @@ export default function BuyTokenPage() {
       });
 
       // Deserialize the transaction
-      const serializedTx = data.serializedTransaction;
+      const serializedTx = instructionsResponse.serializedTransaction;
       const deserializedTxAsU8 = base64.serialize(serializedTx);
       const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
 

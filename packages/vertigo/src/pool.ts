@@ -5,10 +5,11 @@ import {
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { getPayerKeypair } from "@workspace/solana";
 import { createVertigoSDK } from "./utils";
 import { LaunchPoolParams } from "@workspace/types";
+import { NotFoundError, InternalServerError } from "elysia";
 /**
  * Launch a new liquidity pool for a token
  */
@@ -95,5 +96,49 @@ export async function launchPool(
   } catch (error: any) {
     console.error("Error launching Vertigo pool:", error);
     throw new Error(`Failed to launch pool: ${error.message}`);
+  }
+}
+
+/**
+ * Verifies that a given Solana account exists on-chain.
+ * @param connection - Solana connection object.
+ * @param accountPublicKey - The public key of the account to verify.
+ * @param accountName - A descriptive name for the account (e.g., "Pool Account") for logging.
+ * @throws {Error} If the account is not found or verification fails.
+ */
+export async function verifySolanaAccount(
+  connection: Connection,
+  accountPublicKey: PublicKey,
+  accountName: string = "Account"
+): Promise<void> {
+  try {
+    console.log(
+      `[verifySolanaAccount] Verifying ${accountName} existence: ${accountPublicKey.toString()}`
+    );
+    const accountInfo = await connection.getAccountInfo(accountPublicKey);
+    if (!accountInfo) {
+      console.error(
+        `[verifySolanaAccount] ${accountName} NOT FOUND on-chain: ${accountPublicKey.toString()}`
+      );
+      // More specific error type might be better here
+      throw new NotFoundError(
+        `${accountName} ${accountPublicKey.toString()} not found on-chain.`
+      );
+    }
+    console.log(
+      `[verifySolanaAccount] ${accountName} found on-chain. Lamports: ${accountInfo.lamports}, Owner: ${accountInfo.owner.toString()}`
+    );
+  } catch (error: any) {
+    console.error(
+      `[verifySolanaAccount] Error verifying ${accountName} (${accountPublicKey.toString()}):`,
+      error
+    );
+    // Re-throw specific errors or a generic one
+    if (error instanceof NotFoundError) {
+      throw error;
+    }
+    throw new InternalServerError(
+      `Could not verify ${accountName} (${accountPublicKey.toString()}) on-chain.`
+    );
   }
 }

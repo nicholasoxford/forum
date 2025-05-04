@@ -5,6 +5,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { useUmi } from "@/lib/umi";
 import { usePoolInfo } from "./use-pool-info";
+import { server } from "@/utils/elysia";
 
 interface SellTokenStatus {
   type: "success" | "error" | "info" | null;
@@ -58,27 +59,17 @@ export function useSellToken() {
         setStatus({ type: "info", message: "Preparing transaction..." });
 
         // Call API to get transaction instructions
-        const response = await fetch("/api/tokens/sell", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const { data: instructionsResponse, error: instructionsError } =
+          await server.instructions.sell.post({
             tokenMintAddress: tokenMint,
             userAddress: publicKey.toString(),
             amount: parseFloat(amount),
-          }),
-        });
+          });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to prepare transaction");
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "Failed to prepare transaction");
+        if (instructionsError) {
+          throw new Error(
+            instructionsError.value.message || "Failed to prepare transaction"
+          );
         }
 
         // Process the serialized transaction
@@ -88,7 +79,7 @@ export function useSellToken() {
         });
 
         // Deserialize the transaction
-        const serializedTx = data.serializedTransaction;
+        const serializedTx = instructionsResponse.serializedTransaction;
         const deserializedTxAsU8 = base64.serialize(serializedTx);
         const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
 
