@@ -11,6 +11,7 @@ import { ChevronRight } from "lucide-react";
 import { TokenBasicInfo } from "./token-basic-info";
 import { TokenEconomics } from "./token-economics";
 import { TokenSuccess } from "./token-success";
+import { server } from "@/utils/elysia";
 
 const DEFAULT_DECIMALS = 6;
 const DEFAULT_FEE_BASIS_POINTS = 100; // 1%
@@ -166,35 +167,27 @@ export const TokenLaunchFlow = () => {
       const mintAddressStr = mintSigner.publicKey.toString();
       setMintAddress(mintAddressStr);
 
-      // Create group chat automatically
       try {
-        const response = await fetch("/api/tokens", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tokenMintAddress: mintAddressStr,
-            tokenSymbol: symbol,
-            tokenName: name,
-            decimals,
-            transferFeeBasisPoints: feeBps,
-            maximumFee: maxFee,
-            metadataUri,
-            creatorWalletAddress: wallet.publicKey.toString(),
-            requiredHoldings,
-            targetMarketCap: isCustomMarketCap ? customMarketCap : null,
-          }),
+        const { data, error } = await server.tokens["launch-token"].post({
+          tokenMintAddress: mintAddressStr,
+          tokenSymbol: symbol,
+          tokenName: name,
+          decimals,
+          transferFeeBasisPoints: feeBps,
+          maximumFee: maxFee,
+          metadataUri,
+          creatorWalletAddress: wallet.publicKey.toString(),
+          requiredHoldings,
+          targetMarketCap: isCustomMarketCap ? customMarketCap : undefined,
         });
 
-        const respData = await response.json();
-
-        if (!response.ok) {
-          console.error("Failed to save token to database:", respData);
+        // Create group chat automatically
+        if (error) {
+          console.error("Failed to save token to database:", error);
         } else {
-          if (respData.telegramChannelId) {
-            setTelegramChannelIdCreated(respData.telegramChannelId);
-            setTelegramUsernameCreated(respData.telegramUsername || null);
+          if (data.telegramChannelId) {
+            setTelegramChannelIdCreated(data.telegramChannelId);
+            setTelegramUsernameCreated(data.telegramUsername || null);
             setGroupChatCreated(true);
           }
           setCurrentStep(3); // Success step
@@ -219,7 +212,6 @@ export const TokenLaunchFlow = () => {
     wallet,
     name,
     symbol,
-
     decimals,
     feeBps,
     maxFee,
@@ -229,7 +221,7 @@ export const TokenLaunchFlow = () => {
     umi,
     selectedImage,
     imagePreview,
-
+    description,
     createMetadata,
     uploadImage,
   ]);

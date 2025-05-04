@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { PoolSelector } from "./pool-selector";
 import { Pool } from "@/hooks/use-pools";
 import { NATIVE_MINT } from "@solana/spl-token";
+import { server } from "@/utils/elysia";
 
 export function ClaimRoyaltiesForm() {
   const wallet = useWallet();
@@ -50,32 +51,25 @@ export function ClaimRoyaltiesForm() {
         mintA: selectedPool?.mintA || NATIVE_MINT.toString(),
       });
 
-      const apiUrl = `/api/vertigo/claim-royalties?${queryParams.toString()}`;
+      const { data, error } = await server.instructions["claim-royalties"].post(
+        {
+          poolAddress,
+          mintA: selectedPool?.mintA || NATIVE_MINT.toString(),
+          ownerAddress: wallet.publicKey.toString(),
+        }
+      );
 
-      // Make the request to the API
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          account: wallet.publicKey.toString(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to claim royalties");
+      if (error) {
+        throw new Error(error.value.message || "Failed to claim royalties");
       }
 
       // Success - show transaction details
       toast.success("Royalties claimed successfully!");
 
       // Optionally show link to transaction
-      if (data.transaction) {
+      if (data) {
         const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
-        const explorerUrl = `https://explorer.solana.com/tx/${data.transaction}?cluster=${network}`;
+        const explorerUrl = `https://explorer.solana.com/tx/${data.signature}?cluster=${network}`;
         toast.success(
           <div className="flex flex-col gap-2">
             <span>Transaction confirmed!</span>

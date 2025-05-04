@@ -147,6 +147,23 @@
         "typescript": "^5.0.0",
       },
     },
+    "packages/telegram": {
+      "name": "@workspace/telegram",
+      "version": "0.0.0",
+      "dependencies": {
+        "@solana/web3.js": "^1.98.2",
+        "big-integer": "^1.6.52",
+        "bs58": "^6.0.0",
+        "telegram": "^2.26.22",
+      },
+      "devDependencies": {
+        "@workspace/eslint-config": "workspace:*",
+        "@workspace/types": "workspace:*",
+        "@workspace/typescript-config": "workspace:*",
+        "bun-types": "latest",
+        "typescript": "^5.0.0",
+      },
+    },
     "packages/transactions": {
       "name": "@workspace/transactions",
       "version": "0.0.0",
@@ -1023,6 +1040,8 @@
     "@workspace/server": ["@workspace/server@workspace:apps/server"],
 
     "@workspace/solana": ["@workspace/solana@workspace:packages/solana"],
+
+    "@workspace/telegram": ["@workspace/telegram@workspace:packages/telegram"],
 
     "@workspace/transactions": ["@workspace/transactions@workspace:packages/transactions"],
 
@@ -2859,8 +2878,6 @@
     "@workspace/solana/bun-types": ["bun-types@1.2.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-dbkp5Lo8HDrXkLrONm6bk+yiiYQSntvFUzQp0v3pzTAsXk6FtgVMjdQ+lzFNVAmQFUkPQZ3WMZqH5tTo+Dp/IA=="],
 
     "@workspace/transactions/bun-types": ["bun-types@1.2.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-dbkp5Lo8HDrXkLrONm6bk+yiiYQSntvFUzQp0v3pzTAsXk6FtgVMjdQ+lzFNVAmQFUkPQZ3WMZqH5tTo+Dp/IA=="],
-
-    "@workspace/types/bun-types": ["bun-types@1.2.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-dbkp5Lo8HDrXkLrONm6bk+yiiYQSntvFUzQp0v3pzTAsXk6FtgVMjdQ+lzFNVAmQFUkPQZ3WMZqH5tTo+Dp/IA=="],
 
     "@workspace/vertigo/bun-types": ["bun-types@1.2.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-dbkp5Lo8HDrXkLrONm6bk+yiiYQSntvFUzQp0v3pzTAsXk6FtgVMjdQ+lzFNVAmQFUkPQZ3WMZqH5tTo+Dp/IA=="],
 

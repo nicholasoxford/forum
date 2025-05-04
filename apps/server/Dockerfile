@@ -13,6 +13,7 @@ COPY packages/solana/package.json ./packages/solana/package.json
 COPY packages/transactions/package.json ./packages/transactions/package.json
 COPY packages/types/package.json ./packages/types/package.json
 COPY packages/vertigo/package.json ./packages/vertigo/package.json
+COPY packages/telegram/package.json ./packages/telegram/package.json
 COPY apps/server/package.json ./apps/server/package.json
 
 # Install dependencies
@@ -26,6 +27,7 @@ COPY packages/solana ./packages/solana
 COPY packages/transactions ./packages/transactions
 COPY packages/types ./packages/types
 COPY packages/vertigo ./packages/vertigo
+COPY packages/telegram ./packages/telegram
 COPY apps/server ./apps/server
 
 # Set environment variables

@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card";
 import { toast } from "sonner";
+import { server } from "@/utils/elysia";
 
 export function LaunchPoolForm() {
   const { publicKey, connected, signMessage } = useWallet();
@@ -52,34 +53,17 @@ export function LaunchPoolForm() {
         return;
       }
 
-      // Create a message to sign for authorization
-      const message = `Launch Vertigo pool for token ${formData.tokenMint}`;
-      const encodedMessage = new TextEncoder().encode(message);
-      const signature = await signMessage(encodedMessage);
-
-      // Convert signature to base64 for API request
-      const signatureBase64 = Buffer.from(signature).toString("base64");
-
-      // Send request to API
-      const response = await fetch("/api/vertigo/launch-pool", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tokenMint: formData.tokenMint,
-          initialLiquidity: parseFloat(formData.initialLiquidity),
-          feeBps: parseInt(formData.feeBps),
-          maxFee: parseFloat(formData.maxFee),
-          magicSol: parseFloat(formData.magicSol),
-          walletPublicKey: publicKey.toString(),
-          signature: signatureBase64,
-        }),
+      const { data, error } = await server.instructions["launch-pool"].post({
+        tokenName: "Test Token",
+        tokenSymbol: "TEST",
+        ownerAddress: publicKey.toString(),
+        mintB: formData.tokenMint,
+        tokenWallet: formData.tokenMint,
+        shift: parseFloat(formData.magicSol),
+        royaltiesBps: parseInt(formData.feeBps),
       });
 
-      const result = await response.json();
-
-      if (result.success) {
+      if (data) {
         toast.success("Pool launched successfully!");
         // Reset form
         setFormData({
@@ -90,7 +74,7 @@ export function LaunchPoolForm() {
           magicSol: "10",
         });
       } else {
-        toast.error(`Failed to launch pool: ${result.error}`);
+        toast.error(`Failed to launch pool: ${error}`);
       }
     } catch (error) {
       console.error("Error launching pool:", error);

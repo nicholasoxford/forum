@@ -59,16 +59,15 @@ export default function BuyTokenPage() {
 
       try {
         setStatus({ type: "info", message: "Fetching pool information..." });
-        const response = await fetch(`/api/tokens/${tokenMint}/pool`);
-        const data = await response.json();
+        const { data, error } = await server.tokens({ tokenMint }).pool.get({});
 
-        if (response.ok && data.success) {
+        if (data) {
           setPoolInfo(data);
           setStatus({ type: null, message: "" });
         } else {
           setStatus({
             type: "error",
-            message: data.error || "Failed to fetch pool information",
+            message: error?.value.message || "Failed to fetch pool information",
           });
           setPoolInfo(null);
         }
