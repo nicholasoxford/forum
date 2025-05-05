@@ -151,7 +151,11 @@ export const WalletAuth: FC = memo(() => {
         className="h-8 px-3 py-0 text-xs bg-violet-600 hover:bg-violet-700"
         disabled={isSigningIn}
       >
-        {isSigningIn ? "Signing in..." : "Sign in"}
+        {isSigningIn
+          ? "Signing in..."
+          : connected
+            ? "Sign in with Wallet"
+            : "Connect Wallet"}
       </Button>
       <WalletModal
         isOpen={isWalletModalOpen}
