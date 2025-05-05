@@ -22,9 +22,6 @@ export async function getMessageForSigning(
   publicKey: string
 ): Promise<SigninMessage | null> {
   try {
-    // Set auth_nonce cookie with appropriate domain settings
-    const config = getCookieDomainConfig();
-
     // Send the public key as a header to the auth message endpoint
     const { data, error } = await server.auth.message.get({
       headers: {

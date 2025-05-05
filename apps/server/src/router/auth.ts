@@ -2,15 +2,34 @@ import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { SigninMessage, verifyToken } from "@workspace/auth";
 
-// Helper to determine cookie settings based on environment
-const getCookieConfig = () => {
-  const isProd = process.env.NODE_ENV === "production";
-  // Use .groupy.fun to work with both groupy.fun and www.groupy.fun
-  const domain = isProd ? ".groupy.fun" : undefined;
+// Helper to determine cookie settings based on environment and request host
+const getCookieConfig = (requestHostHeader?: string | null) => {
+  // Define the production host (can be overridden by env var if needed)
+  const productionHost = process.env.PRODUCTION_HOST || "groupy.fun";
+  // Check if NODE_ENV is explicitly set to production
+  const isProdEnv = process.env.NODE_ENV === "production";
+
+  // Determine if the request originated from the expected production frontend host
+  const requestHost = requestHostHeader?.split(":")[0]; // Remove port if present
+  const isProdHostRequest = requestHost
+    ? requestHost === productionHost ||
+      requestHost.endsWith("." + productionHost)
+    : false;
+
+  // Use production cookie settings only if NODE_ENV is production
+  // AND the request originates from the production host.
+  const useProdSettings = isProdEnv && isProdHostRequest;
+
   return {
-    sameSite: isProd ? ("strict" as const) : ("lax" as const),
-    secure: isProd,
-    domain,
+    // Use 'strict' for production host requests, 'lax' otherwise
+    sameSite: useProdSettings ? ("strict" as const) : ("lax" as const),
+    // Secure flag should be true only for production settings (HTTPS)
+    secure: useProdSettings,
+    // Set the Domain attribute ONLY for production host requests.
+    // Let the browser default the domain for other origins (localhost, direct IP/fly.dev access).
+    domain: useProdSettings ? `.${productionHost}` : undefined,
+    // Standardize path to '/' for session cookies for broader applicability
+    path: "/",
   };
 };
 
@@ -24,29 +43,38 @@ export const authRouter = new Elysia()
     })
   )
 
-  .get("/auth/message", ({ headers, cookie, set }) => {
+  .get("/auth/message", ({ headers, cookie, set, request }) => {
     try {
-      const domain = new URL(process.env.NEXTAUTH_URL!).host;
-      const nonce = crypto.randomUUID();
-      const cookieConfig = getCookieConfig();
+      // Get host from request headers
+      const requestHost = request.headers.get("host");
+      // Determine cookie configuration based on the request host
+      const cookieConfig = getCookieConfig(requestHost);
+      // Determine the domain to use in the SigninMessage
+      // Use the specific domain from config if set, otherwise fallback to request host or NEXTAUTH_URL host
+      const messageDomain = cookieConfig.domain
+        ? cookieConfig.domain.substring(1) // Remove leading dot for message
+        : requestHost?.split(":")[0] || new URL(process.env.NEXTAUTH_URL!).host;
 
-      // Store nonce in an HttpOnly cookie for 5 minutes
+      const nonce = crypto.randomUUID();
+
+      // Store nonce in an HttpOnly cookie
       cookie["auth_nonce"]?.set({
         value: nonce,
         httpOnly: true,
-        maxAge: 5 * 60,
-        path: "/api/auth",
+        maxAge: 5 * 60, // 5 minutes
+        // Use the base config, but override path specifically for nonce cookie if needed
         ...cookieConfig,
+        path: "/api/auth", // Keep nonce path specific for its purpose
       });
 
-      // Client must supply their publicKey (e.g. via a header or query param)
+      // Client must supply their publicKey
       const publicKey = headers["x-public-key"];
       if (!publicKey) {
         set.status = 400;
         return { error: "Missing x-public-key header" };
       }
       const message = new SigninMessage({
-        domain,
+        domain: messageDomain, // Use the determined domain
         nonce,
         publicKey,
         statement: "Sign in to Forum App",
@@ -90,15 +118,25 @@ export const authRouter = new Elysia()
       }),
     }
   )
-  .get("/auth/logout", ({ cookie }) => {
-    const cookieConfig = getCookieConfig();
+  .get("/auth/logout", ({ cookie, request }) => {
+    // Get host from request headers
+    const requestHost = request.headers.get("host");
+    // Determine cookie configuration based on the request host
+    const cookieConfig = getCookieConfig(requestHost);
 
-    // Clear auth cookie
+    // Clear auth cookie using the determined configuration
     cookie["auth"]?.set({
       value: "",
+      maxAge: 0, // Expire immediately
+      ...cookieConfig, // Apply calculated domain, path, secure, sameSite
+    });
+
+    // Optionally clear the nonce cookie as well, using its specific path
+    cookie["auth_nonce"]?.set({
+      value: "",
       maxAge: 0,
-      path: "/",
-      ...cookieConfig,
+      ...cookieConfig, // Base config
+      path: "/api/auth", // Specific path for nonce
     });
 
     return {
@@ -108,24 +146,54 @@ export const authRouter = new Elysia()
   })
   .post(
     "/api/auth/solana",
-    async ({ body, cookie, jwt, set }) => {
+    async ({ body, cookie, jwt, set, request }) => {
       try {
-        console.log("body: ", body);
+        // Get host from request headers
+        const requestHost = request.headers.get("host");
+        // Determine cookie configuration based on the request host
+        const cookieConfig = getCookieConfig(requestHost);
+
+        console.log("Request Host:", requestHost);
+        console.log("Calculated Cookie Config:", cookieConfig);
+
         const { message, signature } = body;
-        let parsed;
-        const cookieConfig = getCookieConfig();
-
         const signinMessage = new SigninMessage(message);
-        const currentDomain = new URL(process.env.NEXTAUTH_URL!).host;
-        console.log("cookie: ", cookie);
 
-        console.log("signinMessage.nonce: ", signinMessage.nonce);
+        // Validate the domain in the signed message against the request origin or configured URL
+        const expectedDomain = cookieConfig.domain
+          ? cookieConfig.domain.substring(1) // Remove leading dot
+          : requestHost?.split(":")[0] ||
+            new URL(process.env.NEXTAUTH_URL!).host;
 
-        console.log("signinMessage.domain: ", signinMessage.domain);
-        console.log("currentDomain: ", currentDomain);
-        if (signinMessage.domain !== currentDomain) {
+        console.log("SigninMessage Domain:", signinMessage.domain);
+        console.log("Expected Domain:", expectedDomain);
+
+        if (signinMessage.domain !== expectedDomain) {
+          console.error(
+            `Domain mismatch: Expected ${expectedDomain}, got ${signinMessage.domain}`
+          );
           set.status = 401;
           return { error: "Domain mismatch" };
+        }
+
+        // Verify nonce (Check if nonce exists and matches the one in the cookie)
+        const receivedNonce = signinMessage.nonce;
+        const storedNonce = cookie["auth_nonce"]?.value;
+
+        console.log("Received Nonce:", receivedNonce);
+        console.log("Stored Nonce:", storedNonce);
+
+        if (!receivedNonce || !storedNonce || receivedNonce !== storedNonce) {
+          console.error("Nonce mismatch or missing");
+          set.status = 401;
+          // Clear the potentially invalid nonce cookie
+          cookie["auth_nonce"]?.set({
+            value: "",
+            maxAge: 0,
+            ...cookieConfig,
+            path: "/api/auth",
+          });
+          return { error: "Invalid or missing nonce" };
         }
 
         console.log("Validating signature");
@@ -141,22 +209,23 @@ export const authRouter = new Elysia()
           sub: signinMessage.publicKey,
         });
 
-        // Clear nonce cookie
+        // Clear nonce cookie using the correct path and determined config
         cookie["auth_nonce"]?.set({
           value: "",
-          maxAge: 0,
-          path: "/api/auth",
-          ...cookieConfig,
+          maxAge: 0, // Expire immediately
+          ...cookieConfig, // Apply calculated domain, secure, sameSite
+          path: "/api/auth", // Use the specific path where nonce was set
         });
 
-        // Set session cookie
+        // Set session cookie using the determined configuration
         cookie["auth"]?.set({
           value: token,
           httpOnly: true,
-          maxAge: 7 * 24 * 3600,
-          path: "/",
-          ...cookieConfig,
+          maxAge: 7 * 24 * 3600, // 7 days
+          ...cookieConfig, // Apply calculated domain, path='/', secure, sameSite
         });
+
+        console.log("Successfully set auth cookie with config:", cookieConfig);
 
         // Return user information similar to NextAuth
         return {
