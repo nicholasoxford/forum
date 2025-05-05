@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useWallet, WalletName } from "@jup-ag/wallet-adapter";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/components/session-provider";
 
 // Storage keys
 const WALLET_NAME_KEY = "selectedWallet";
@@ -11,7 +11,7 @@ const WALLET_CONNECTED_KEY = "walletConnected";
 export function useWalletPersistence() {
   const { wallet, select, connect, connected, disconnecting, connecting } =
     useWallet();
-  const { data: session } = useSession();
+  const { session } = useAuth();
 
   // On mount, try to restore wallet from localStorage
   useEffect(() => {

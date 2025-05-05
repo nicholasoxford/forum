@@ -8,6 +8,7 @@ COPY package.json bun.lock tsconfig.json ./
 # Copy all workspace package.json files first for better layer caching
 COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
 COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
+COPY packages/auth/package.json ./packages/auth/package.json
 COPY packages/db/package.json ./packages/db/package.json
 COPY packages/solana/package.json ./packages/solana/package.json
 COPY packages/transactions/package.json ./packages/transactions/package.json
@@ -22,12 +23,12 @@ RUN bun install
 # Copy source code
 COPY packages/eslint-config ./packages/eslint-config
 COPY packages/typescript-config ./packages/typescript-config
+COPY packages/auth ./packages/auth
 COPY packages/db ./packages/db
 COPY packages/solana ./packages/solana
 COPY packages/transactions ./packages/transactions
 COPY packages/types ./packages/types
 COPY packages/vertigo ./packages/vertigo
-COPY packages/telegram ./packages/telegram
 COPY apps/server ./apps/server
 
 # Set environment variables

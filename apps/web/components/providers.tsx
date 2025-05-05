@@ -4,7 +4,6 @@ import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { WalletProvider } from "./wallet-connect/wallet-provider";
 import { SessionProvider } from "./session-provider";
-import { Session } from "next-auth";
 
 // This component ensures theme application happens only on the client side
 function ThemeProviderClient({ children }: { children: React.ReactNode }) {
@@ -23,10 +22,9 @@ function ThemeProviderClient({ children }: { children: React.ReactNode }) {
 
 interface ProvidersProps {
   children: React.ReactNode;
-  session?: Session | null;
 }
 
-export const Providers = React.memo(({ children, session }: ProvidersProps) => {
+export const Providers = React.memo(({ children }: ProvidersProps) => {
   const [mounted, setMounted] = React.useState(false);
 
   // Prevent hydration mismatch by only mounting after client-side hydration
@@ -35,7 +33,7 @@ export const Providers = React.memo(({ children, session }: ProvidersProps) => {
   }, []);
 
   return (
-    <SessionProvider session={session}>
+    <SessionProvider>
       <WalletProvider>
         <ThemeProviderClient>
           {mounted ? (
