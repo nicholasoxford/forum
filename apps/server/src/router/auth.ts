@@ -2,49 +2,34 @@ import { Elysia, t, type Context } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { SigninMessage, verifyToken } from "@workspace/auth";
 
-// Helper to determine cookie settings based on environment and request host
+// Helper to determine cookie settings based on environment and request origin
 const getCookieConfig = (ctx: Pick<Context, "request">) => {
-  // Define the production host (can be overridden by env var if needed)
   const productionHost = process.env.PRODUCTION_HOST || "groupy.fun";
-  // Check if NODE_ENV is explicitly set to production
   const isProdEnv = process.env.NODE_ENV === "production";
 
-  // Determine if the request originated from the expected production frontend host
-  // Use the Origin header instead of Host
   const originHeader = ctx.request.headers.get("origin");
   let originHost: string | undefined = undefined;
+
   if (originHeader) {
     try {
       originHost = new URL(originHeader).hostname;
     } catch (e) {
-      // Ignore invalid Origin headers
       console.warn("Invalid Origin header received:", originHeader, e);
     }
   }
 
-  // Check if the origin hostname matches the production host or its subdomains
+  // Determine if the request originates from the expected production frontend host
   const isProdOriginRequest = originHost
     ? originHost === productionHost || originHost.endsWith("." + productionHost)
     : false;
 
-  // console log isProdHostRequest // Keep existing logs for debugging if needed
-  // console.log("requestHost", requestHost); // This is now originHost
-  // console.log("productionHost", productionHost);
-  // // console.log why its false
-  // console.log(
-  //   "Does requestHost match productionHost?",
-  //   requestHost === productionHost
-  // );
-  // console.log(
-  //   "Does requestHost end with productionHost?",
-  //   requestHost?.endsWith("." + productionHost)
-  // );
-  // console.log("productionHost", productionHost);
-
   console.log("Origin Header:", originHeader);
   console.log("Parsed Origin Host:", originHost);
   console.log("Is Production Env:", isProdEnv);
-  console.log("Is Production Origin Request:", isProdOriginRequest);
+  console.log(
+    "Is Production Origin Request (frontend domain check):",
+    isProdOriginRequest
+  );
 
   // Use production cookie settings only if NODE_ENV is production
   // AND the request originates from the production origin.
@@ -52,16 +37,27 @@ const getCookieConfig = (ctx: Pick<Context, "request">) => {
 
   console.log("Using Production Cookie Settings:", useProdSettings);
 
-  return {
-    // Use 'strict' for production host requests, 'lax' otherwise
-    sameSite: useProdSettings ? ("strict" as const) : ("lax" as const),
-    // Secure flag should be true only for production settings (HTTPS)
+  const config = {
+    // Use 'Strict' for production host requests, 'Lax' otherwise
+    sameSite: useProdSettings ? ("Strict" as const) : ("Lax" as const),
+    // Secure flag should be true only for production settings
     secure: useProdSettings,
     // Set the Domain attribute ONLY for production host requests.
-    // Let the browser default the domain for other origins (localhost, direct IP/fly.dev access).
+    // This allows sharing the cookie between www.groupy.fun and api.groupy.fun
     domain: useProdSettings ? `.${productionHost}` : undefined,
-    // Standardize path to '/' for session cookies for broader applicability
+    // Standardize path to '/'
     path: "/",
+  };
+
+  console.log("Final Cookie Config:", config);
+  // Ensure SameSite is lowercase for Elysia compatibility
+  return {
+    ...config,
+    sameSite: config.sameSite.toLowerCase() as
+      | "strict"
+      | "lax"
+      | "none"
+      | undefined,
   };
 };
 
