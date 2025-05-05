@@ -10,6 +10,7 @@ import { base58 } from "@metaplex-foundation/umi/serializers";
 import { createTelegramChannel } from "@workspace/telegram";
 import { launchPool } from "@workspace/vertigo";
 import { createSolanaConnection } from "@workspace/solana";
+import type { HeliusAssetData } from "@workspace/types"; // Import the shared type
 
 // Define the schema for the launch token request body
 const LaunchTokenBodySchema = t.Object({
@@ -101,28 +102,33 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
     }
   )
   .get(
-    "/:tokenMint/pool",
-    async ({ params }) => {
+    "/:id/pool",
+    async ({ params, set }) => {
       try {
-        const { tokenMint } = params;
+        const { id } = params;
 
-        if (!tokenMint) {
-          throw new Error("Token mint address is required");
+        if (!id) {
+          set.status = 400;
+          return { error: "Token ID is required" };
         }
 
         // Get token information
         const db = getDb();
         const token = await db.query.tokens.findFirst({
-          where: eq(tokens.tokenMintAddress, tokenMint),
+          where: eq(tokens.tokenMintAddress, id),
         });
 
         if (!token) {
-          throw new Error("Token not found");
+          set.status = 404;
+          return {
+            error: "Token not found",
+            message: `No token found with mint address: ${id}`,
+          };
         }
 
         // Get pool information
         const pool = await db.query.pools.findFirst({
-          where: eq(pools.tokenMintAddress, tokenMint),
+          where: eq(pools.tokenMintAddress, id),
         });
 
         return {
@@ -136,24 +142,210 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
           targetMarketCap: String(token.targetMarketCap || "0"),
         };
       } catch (error: any) {
-        console.error("[tokens/:tokenMint/pool GET]", error);
-        throw new Error(error?.message || "Failed to fetch token pool");
+        console.error("[tokens/:id/pool GET]", error);
+        set.status = 500;
+        return {
+          error: "Internal server error",
+          message: error?.message || "Failed to fetch token pool",
+        };
       }
     },
     {
       params: t.Object({
-        tokenMint: t.String(),
+        id: t.String(),
       }),
-      response: t.Object({
-        tokenMintAddress: t.String(),
-        tokenSymbol: t.String(),
-        tokenName: t.String(),
-        decimals: t.Number(),
-        transferFeeBasisPoints: t.Number(),
-        maximumFee: t.String(),
-        metadataUri: t.String(),
-        targetMarketCap: t.String(),
+      response: {
+        200: t.Object({
+          tokenMintAddress: t.String(),
+          tokenSymbol: t.String(),
+          tokenName: t.String(),
+          decimals: t.Number(),
+          transferFeeBasisPoints: t.Number(),
+          maximumFee: t.String(),
+          metadataUri: t.String(),
+          targetMarketCap: t.String(),
+        }),
+        400: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+        404: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+        500: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+      },
+    }
+  )
+  .get(
+    "/:id",
+    async ({ params, set }) => {
+      try {
+        const { id } = params;
+
+        if (!id) {
+          set.status = 400;
+          return { error: "Token ID is required" };
+        }
+
+        const RPC_URL = process.env.RPC_URL;
+
+        if (!RPC_URL) {
+          console.error(
+            "[tokens/:id GET] RPC_URL environment variable not set."
+          );
+          set.status = 500;
+          return { error: "Server configuration error" };
+        }
+
+        const response = await fetch(RPC_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "token-lookup-" + id,
+            method: "getAsset",
+            params: { id: id, displayOptions: { showFungible: true } },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(
+            `[tokens/:id GET] Helius API request failed with status ${response.status}: ${errorBody}`
+          );
+          // Set appropriate status based on upstream failure
+          set.status = response.status === 404 ? 404 : 502; // Use 404 if Helius 404s, else 502
+          return {
+            error:
+              response.status === 404
+                ? "Token not found via Helius API"
+                : "Failed to fetch data from Helius API",
+            message: errorBody,
+          };
+        }
+
+        const data = await response.json();
+
+        if (!data.result) {
+          console.warn(
+            `[tokens/:id GET] Helius API returned no result for ID: ${id}`
+          );
+          set.status = 404;
+          return { error: "Token not found" };
+        }
+
+        // Success: Return the result directly.
+        return data.result;
+      } catch (err: any) {
+        // Catch errors from fetch/JSON parsing or unexpected issues
+        console.error("[tokens/:id GET] Internal processing error:", err);
+        set.status = 500;
+        return { error: "Internal Server Error", message: err?.message };
+      }
+    },
+    {
+      params: t.Object({
+        id: t.String(),
       }),
+      // Update response schema to include error responses
+      response: {
+        // Success response
+        200: t.Object({
+          interface: t.String(),
+          id: t.String(),
+          content: t.Optional(
+            t.Object({
+              metadata: t.Optional(
+                t.Object({
+                  name: t.Optional(t.String()),
+                  symbol: t.Optional(t.String()),
+                  description: t.Optional(t.String()),
+                  attributes: t.Optional(
+                    t.Array(
+                      t.Object({
+                        trait_type: t.String(),
+                        value: t.String(),
+                      })
+                    )
+                  ),
+                })
+              ),
+              files: t.Optional(
+                t.Array(
+                  t.Object({
+                    uri: t.String(),
+                    cdn_uri: t.String(),
+                    mime: t.String(),
+                  })
+                )
+              ),
+              links: t.Optional(
+                t.Object({
+                  image: t.Optional(t.String()),
+                })
+              ),
+            })
+          ),
+          grouping: t.Optional(
+            t.Array(
+              t.Object({
+                group_key: t.String(),
+                group_value: t.String(),
+              })
+            )
+          ),
+          ownership: t.Optional(
+            t.Object({
+              owner: t.Optional(t.String()),
+            })
+          ),
+          token_info: t.Optional(
+            t.Object({
+              supply: t.Optional(t.Number()),
+              decimals: t.Optional(t.Number()),
+              token_program: t.Optional(t.String()),
+              mint_authority: t.Optional(t.String()),
+              freeze_authority: t.Optional(t.String()),
+            })
+          ),
+          mint_extensions: t.Optional(
+            t.Object({
+              transfer_fee_config: t.Optional(
+                t.Object({
+                  newer_transfer_fee: t.Optional(
+                    t.Object({
+                      transfer_fee_basis_points: t.Optional(t.Number()),
+                    })
+                  ),
+                })
+              ),
+            })
+          ),
+        }),
+        // Error responses
+        400: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+        404: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+        500: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+        502: t.Object({
+          error: t.String(),
+          message: t.Optional(t.String()),
+        }),
+      },
     }
   )
   .get(

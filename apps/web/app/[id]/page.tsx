@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
 import { Copy, ExternalLink, MessageSquare } from "lucide-react";
@@ -6,51 +6,8 @@ import Image from "next/image";
 import { BuyTokenDialog } from "@/components/buy-token-dialog";
 import { SellTokenDialog } from "@/components/sell-token-dialog";
 import { TokenBalance } from "@/components/token-balance";
+import { server } from "@/utils/elysia";
 
-interface TokenData {
-  interface: string;
-  id: string;
-  content?: {
-    metadata?: {
-      name?: string;
-      symbol?: string;
-      description?: string;
-      attributes?: Array<{
-        trait_type: string;
-        value: string;
-      }>;
-    };
-    files?: Array<{
-      uri: string;
-      cdn_uri: string;
-      mime: string;
-    }>;
-    links?: {
-      image?: string;
-    };
-  };
-  grouping?: Array<{
-    group_key: string;
-    group_value: string;
-  }>;
-  ownership?: {
-    owner?: string;
-  };
-  token_info?: {
-    supply?: number;
-    decimals?: number;
-    token_program?: string;
-    mint_authority?: string;
-    freeze_authority?: string;
-  };
-  mint_extensions?: {
-    transfer_fee_config?: {
-      newer_transfer_fee?: {
-        transfer_fee_basis_points?: number;
-      };
-    };
-  };
-}
 export type paramsType = Promise<{ id: string }>;
 export default async function TokenPage({ params }: { params: paramsType }) {
   const { id } = await params;
@@ -63,33 +20,11 @@ export default async function TokenPage({ params }: { params: paramsType }) {
       throw new Error("Helius API key not configured");
     }
 
-    // Fetch token data from Helius API
-    const response = await fetch(RPC_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "token-lookup",
-        method: "getAsset",
-        params: {
-          id: id,
-          displayOptions: {
-            showFungible: true,
-          },
-        },
-      }),
-      next: { revalidate: 60 }, // Revalidate every minute
-    });
-
-    const data = await response.json();
-
-    if (!data.result) {
-      return notFound();
+    const { data: tokenData, error } = await server.tokens({ id }).get({});
+    if (error) {
+      redirect("/");
     }
 
-    const tokenData: TokenData = data.result;
     const tokenName = tokenData.content?.metadata?.name || "Unnamed Token";
     const tokenSymbol = tokenData.content?.metadata?.symbol || "";
     const tokenImage =
@@ -246,7 +181,10 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                     </h2>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {tokenData.content.metadata.attributes.map(
-                        (attr, index) => (
+                        (
+                          attr: { trait_type: string; value: string },
+                          index: number
+                        ) => (
                           <div
                             key={index}
                             className="bg-black/40 border border-zinc-800/60 rounded-lg px-3 py-2"
