@@ -5,14 +5,13 @@ import { useWallet } from "@jup-ag/wallet-adapter";
 import { Button } from "@workspace/ui/components/button";
 import bs58 from "bs58";
 import { WalletModal } from "@workspace/ui/components/wallet-connect/wallet-modal";
-import { useWalletPersistence } from "@/hooks/use-wallet-persistence";
+import { useAuth } from "../session-provider";
 import {
   getMessageForSigning,
   authenticateWithServer,
   logoutFromServer,
 } from "@/utils/server-auth";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../session-provider";
 
 export const WalletAuth: FC = memo(() => {
   const { publicKey, signMessage, disconnect, connected, connecting } =
@@ -21,9 +20,6 @@ export const WalletAuth: FC = memo(() => {
   const { session, status, isLoading, refreshSession } = useAuth();
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-
-  // Initialize wallet persistence
-  useWalletPersistence();
 
   const handleSignIn = useCallback(async () => {
     if (status === "authenticated") return;

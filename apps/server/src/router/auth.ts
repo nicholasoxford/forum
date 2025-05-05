@@ -1,6 +1,6 @@
 import { Elysia, t, type Context } from "elysia";
 import { jwt } from "@elysiajs/jwt";
-import { SigninMessage, verifyToken } from "@workspace/auth";
+import { SigninMessage } from "@workspace/auth";
 
 // Helper to determine cookie settings based on environment and request origin
 const getCookieConfig = (ctx: Pick<Context, "request">) => {
@@ -61,16 +61,90 @@ const getCookieConfig = (ctx: Pick<Context, "request">) => {
   };
 };
 
+// --- Protected Routes Plugin ---
+export const protectedRoutes = new Elysia()
+  .use(
+    jwt({
+      name: "jwt", // Use the same configuration as the main app
+      secret: process.env.NEXTAUTH_SECRET!,
+      schema: t.Object({ sub: t.String() }),
+    })
+  )
+  .derive(({ jwt, cookie, error }) => {
+    return {
+      // This function will attempt to verify the JWT from the cookie
+      // It's designed to be called within route handlers that need user info
+      // but don't necessarily need to block access if unauthenticated (can be adapted)
+      // For strict protection, the onBeforeHandle hook is better.
+      getUserFromToken: async () => {
+        const token = cookie.auth?.value;
+        if (!token) return null;
+        try {
+          const payload = await jwt.verify(token);
+          return payload ? { publicKey: payload.sub } : null;
+        } catch (e) {
+          console.error("getUserFromToken - verification error:", e);
+          return null;
+        }
+      },
+    };
+  })
+  // This hook runs before every handler in this plugin
+  .onBeforeHandle(async ({ jwt, cookie, error, store, set, request }) => {
+    const token = cookie.auth?.value;
+
+    if (!token) {
+      console.log("Protected route: No auth token found.");
+      // Use standard error status/string
+      return error("Unauthorized");
+    }
+
+    try {
+      const payload = await jwt.verify(token);
+
+      if (!payload) {
+        console.log("Protected route: Invalid token payload.");
+        // Use standard error status/string
+        return error("Unauthorized");
+      }
+
+      // Attach user info to the context for downstream handlers
+      (store as any).user = { publicKey: payload.sub };
+      console.log("Protected route: User authenticated:", payload.sub);
+    } catch (err: any) {
+      console.error("Protected route: Token verification failed:", err.message);
+      // Don't try to clear the cookie here, just return the error.
+      // The client should initiate logout if it receives a 401.
+      // Use standard error status/string and log the internal error message
+      return error("Unauthorized");
+    }
+  })
+  .get(
+    "/test",
+    ({ store }) => {
+      // The onBeforeHandle hook ensures store.user exists here
+      const user = (store as any).user;
+      return {
+        message: "This is a protected route",
+        user: {
+          publicKey: user.publicKey,
+          verifiedAt: new Date().toISOString(),
+        },
+      };
+    }
+    // No need for cookie schema here, hook handles it
+  );
+
+// --- Main Auth Router ---
 export const authRouter = new Elysia()
   .use(
     jwt({
-      name: "jwt", // Decorator name: ctx.jwt
-      secret: process.env.NEXTAUTH_SECRET!, // Use same secret as NextAuth
-      schema: t.Object({ sub: t.String() }), // Enforce a "sub" string in the payload
-      exp: "7d", // Tokens expire in 7 days
+      name: "jwt", // Main app also needs JWT for signing
+      secret: process.env.NEXTAUTH_SECRET!,
+      schema: t.Object({ sub: t.String() }),
+      exp: "7d",
     })
   )
-
   .get("/auth/message", ({ headers, cookie, set, request }) => {
     try {
       // Get host from request headers
@@ -128,37 +202,7 @@ export const authRouter = new Elysia()
       return { error: "Failed to generate authentication message" };
     }
   })
-  .get(
-    "/protected/test",
-    async ({ cookie, set, request }) => {
-      const token = cookie["auth"]?.value;
 
-      if (!token) {
-        set.status = 401;
-        return { error: "Authentication required" };
-      }
-
-      const user = await verifyToken(token);
-
-      if (!user) {
-        set.status = 401;
-        return { error: "Invalid or expired token" };
-      }
-
-      return {
-        message: "This is a protected route",
-        user: {
-          publicKey: user.publicKey,
-          verifiedAt: new Date().toISOString(),
-        },
-      };
-    },
-    {
-      cookie: t.Cookie({
-        auth: t.String(),
-      }),
-    }
-  )
   .get("/auth/logout", ({ cookie, request, set }) => {
     // Get host from request headers
     // const requestHost = request.headers.get("host"); // No longer needed for cookie config

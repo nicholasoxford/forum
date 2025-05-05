@@ -6,8 +6,7 @@ import { s3Router } from "./router/s3";
 import { solanaRouter } from "./router/solana";
 import { tokensRouter } from "./router/tokens";
 import { instructionsRouter } from "./router/instructions";
-import { poolRouter } from "./router/pool";
-import { authRouter } from "./router/auth";
+import { authRouter, protectedRoutes } from "./router/auth";
 // Use PORT environment variable or fallback to 3000
 const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
 
@@ -21,8 +20,8 @@ const app = new Elysia()
   .use(solanaRouter)
   .use(tokensRouter)
   .use(instructionsRouter)
-  .use(poolRouter)
   .use(authRouter)
+  .use(protectedRoutes)
   .get("/", () => "Hello Elysia")
   .listen(port);
 

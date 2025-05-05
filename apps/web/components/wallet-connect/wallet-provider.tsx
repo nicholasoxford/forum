@@ -45,22 +45,12 @@ export const WalletProvider: FC<WalletProviderProps> = memo(({ children }) => {
         notificationCallback: {
           onConnect: (props: any) => {
             console.log("Wallet connected:", props);
-            if (typeof window !== "undefined" && props?.publicKey) {
-              localStorage.setItem("walletConnected", "true");
-              localStorage.setItem(
-                "lastConnectedWallet",
-                props.wallet?.adapter?.name || ""
-              );
-            }
           },
           onConnecting: (props: any) => {
             console.log("Connecting to wallet:", props);
           },
           onDisconnect: (props: any) => {
             console.log("Wallet disconnected:", props);
-            if (typeof window !== "undefined") {
-              localStorage.removeItem("walletConnected");
-            }
           },
           onNotInstalled: (props: any) => {
             console.log("Wallet not installed:", props);

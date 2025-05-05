@@ -131,7 +131,7 @@ export async function getCurrentSession(): Promise<any> {
     console.log("Fetching current session...");
 
     // Include credentials to ensure cookies are sent
-    const { data, error } = await server.protected.test.get({
+    const { data, error } = await server.test.get({
       fetch: {
         credentials: "include",
       },
