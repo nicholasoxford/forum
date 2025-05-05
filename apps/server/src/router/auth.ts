@@ -15,6 +15,20 @@ const getCookieConfig = (requestHostHeader?: string | null) => {
     ? requestHost === productionHost ||
       requestHost.endsWith("." + productionHost)
     : false;
+  // console log isProdHostRequest
+  console.log("isProdHostRequest", isProdHostRequest);
+  console.log("requestHost", requestHost);
+  console.log("productionHost", productionHost);
+  // console.log why its false
+  console.log(
+    "Does requestHost match productionHost?",
+    requestHost === productionHost
+  );
+  console.log(
+    "Does requestHost end with productionHost?",
+    requestHost?.endsWith("." + productionHost)
+  );
+  console.log("productionHost", productionHost);
 
   // Use production cookie settings only if NODE_ENV is production
   // AND the request originates from the production host.

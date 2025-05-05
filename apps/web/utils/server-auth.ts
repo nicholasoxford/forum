@@ -72,10 +72,8 @@ export async function authenticateWithServer(
       },
       {
         fetch: {
+          headers: {},
           credentials: "include",
-        },
-        headers: {
-          auth_nonce: message.nonce,
         },
       }
     );
