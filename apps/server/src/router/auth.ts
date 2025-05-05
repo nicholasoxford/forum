@@ -2,6 +2,17 @@ import { Elysia, t } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { SigninMessage, verifyToken } from "@workspace/auth";
 
+// Helper to determine cookie settings based on environment
+const getCookieConfig = () => {
+  const isProd = process.env.NODE_ENV === "production";
+  const domain = isProd ? ".groupy.fun" : undefined; // Add domain in production only
+  return {
+    sameSite: isProd ? ("strict" as const) : ("lax" as const), // Correctly type sameSite values
+    secure: isProd,
+    domain,
+  };
+};
+
 export const authRouter = new Elysia()
   .use(
     jwt({
@@ -15,6 +26,7 @@ export const authRouter = new Elysia()
     try {
       const domain = new URL(process.env.NEXTAUTH_URL!).host;
       const nonce = crypto.randomUUID();
+      const cookieConfig = getCookieConfig();
 
       // Store nonce in an HttpOnly cookie for 5 minutes
       cookie["auth_nonce"]?.set({
@@ -22,8 +34,7 @@ export const authRouter = new Elysia()
         httpOnly: true,
         maxAge: 5 * 60,
         path: "/api/auth",
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === "production",
+        ...cookieConfig,
       });
 
       // Client must supply their publicKey (e.g. via a header or query param)
@@ -78,13 +89,14 @@ export const authRouter = new Elysia()
     }
   )
   .get("/auth/logout", ({ cookie }) => {
+    const cookieConfig = getCookieConfig();
+
     // Clear auth cookie
     cookie["auth"]?.set({
       value: "",
       maxAge: 0,
       path: "/",
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
+      ...cookieConfig,
     });
 
     return {
@@ -99,6 +111,7 @@ export const authRouter = new Elysia()
         console.log("body: ", body);
         const { message, signature } = body;
         let parsed;
+        const cookieConfig = getCookieConfig();
 
         const signinMessage = new SigninMessage(message);
         const currentDomain = new URL(process.env.NEXTAUTH_URL!).host;
@@ -131,8 +144,7 @@ export const authRouter = new Elysia()
           value: "",
           maxAge: 0,
           path: "/api/auth",
-          sameSite: "strict",
-          secure: process.env.NODE_ENV === "production",
+          ...cookieConfig,
         });
 
         // Set session cookie
@@ -141,8 +153,7 @@ export const authRouter = new Elysia()
           httpOnly: true,
           maxAge: 7 * 24 * 3600,
           path: "/",
-          sameSite: "strict",
-          secure: process.env.NODE_ENV === "production",
+          ...cookieConfig,
         });
 
         // Return user information similar to NextAuth

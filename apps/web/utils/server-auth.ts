@@ -1,17 +1,39 @@
 import { server } from "./elysia";
 import { SigninMessage } from "@workspace/auth";
 
+// Helper to detect environment and get cookie domain configuration
+function getCookieDomainConfig() {
+  const isProd =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "groupy.fun" ||
+      window.location.hostname.endsWith(".groupy.fun"));
+
+  return {
+    isProd,
+    domain: isProd ? "; domain=.groupy.fun" : "",
+    sameSite: isProd ? "; sameSite=strict" : "; sameSite=lax",
+    secure: isProd ? "; secure" : "",
+  };
+}
+
 // Get a message to sign from the server
 export async function getMessageForSigning(
   publicKey: string
 ): Promise<SigninMessage | null> {
   try {
+    // Set auth_nonce cookie with appropriate domain settings
+    const config = getCookieDomainConfig();
+
     // Send the public key as a header to the auth message endpoint
     const { data, error } = await server.auth.message.get({
       headers: {
         "x-public-key": publicKey,
       },
+      fetch: {
+        credentials: "include",
+      },
     });
+
     console.dir({ data, error }, { depth: null });
 
     if (error) {
@@ -79,9 +101,10 @@ export async function authenticateWithServer(
 // Log out - clear the auth cookie and call the logout endpoint
 export async function logoutFromServer(): Promise<boolean> {
   try {
-    // First, clear the cookie client-side
-    document.cookie =
-      "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; sameSite=strict; secure";
+    const config = getCookieDomainConfig();
+
+    // First, clear the cookie client-side with appropriate settings
+    document.cookie = `auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/${config.domain}${config.sameSite}${config.secure}`;
 
     // Call the server logout endpoint to clear the cookie server-side as well
     const { data, error } = await server.auth.logout.get({
