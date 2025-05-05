@@ -1,38 +1,56 @@
-import { Elysia, t } from "elysia";
+import { Elysia, t, type Context } from "elysia";
 import { jwt } from "@elysiajs/jwt";
 import { SigninMessage, verifyToken } from "@workspace/auth";
 
 // Helper to determine cookie settings based on environment and request host
-const getCookieConfig = (requestHostHeader?: string | null) => {
+const getCookieConfig = (ctx: Pick<Context, "request">) => {
   // Define the production host (can be overridden by env var if needed)
   const productionHost = process.env.PRODUCTION_HOST || "groupy.fun";
   // Check if NODE_ENV is explicitly set to production
   const isProdEnv = process.env.NODE_ENV === "production";
 
   // Determine if the request originated from the expected production frontend host
-  const requestHost = requestHostHeader?.split(":")[0]; // Remove port if present
-  const isProdHostRequest = requestHost
-    ? requestHost === productionHost ||
-      requestHost.endsWith("." + productionHost)
+  // Use the Origin header instead of Host
+  const originHeader = ctx.request.headers.get("origin");
+  let originHost: string | undefined = undefined;
+  if (originHeader) {
+    try {
+      originHost = new URL(originHeader).hostname;
+    } catch (e) {
+      // Ignore invalid Origin headers
+      console.warn("Invalid Origin header received:", originHeader, e);
+    }
+  }
+
+  // Check if the origin hostname matches the production host or its subdomains
+  const isProdOriginRequest = originHost
+    ? originHost === productionHost || originHost.endsWith("." + productionHost)
     : false;
-  // console log isProdHostRequest
-  console.log("isProdHostRequest", isProdHostRequest);
-  console.log("requestHost", requestHost);
-  console.log("productionHost", productionHost);
-  // console.log why its false
-  console.log(
-    "Does requestHost match productionHost?",
-    requestHost === productionHost
-  );
-  console.log(
-    "Does requestHost end with productionHost?",
-    requestHost?.endsWith("." + productionHost)
-  );
-  console.log("productionHost", productionHost);
+
+  // console log isProdHostRequest // Keep existing logs for debugging if needed
+  // console.log("requestHost", requestHost); // This is now originHost
+  // console.log("productionHost", productionHost);
+  // // console.log why its false
+  // console.log(
+  //   "Does requestHost match productionHost?",
+  //   requestHost === productionHost
+  // );
+  // console.log(
+  //   "Does requestHost end with productionHost?",
+  //   requestHost?.endsWith("." + productionHost)
+  // );
+  // console.log("productionHost", productionHost);
+
+  console.log("Origin Header:", originHeader);
+  console.log("Parsed Origin Host:", originHost);
+  console.log("Is Production Env:", isProdEnv);
+  console.log("Is Production Origin Request:", isProdOriginRequest);
 
   // Use production cookie settings only if NODE_ENV is production
-  // AND the request originates from the production host.
-  const useProdSettings = isProdEnv && isProdHostRequest;
+  // AND the request originates from the production origin.
+  const useProdSettings = isProdEnv && isProdOriginRequest;
+
+  console.log("Using Production Cookie Settings:", useProdSettings);
 
   return {
     // Use 'strict' for production host requests, 'lax' otherwise
@@ -60,14 +78,27 @@ export const authRouter = new Elysia()
   .get("/auth/message", ({ headers, cookie, set, request }) => {
     try {
       // Get host from request headers
-      const requestHost = request.headers.get("host");
-      // Determine cookie configuration based on the request host
-      const cookieConfig = getCookieConfig(requestHost);
+      // const requestHost = request.headers.get("host"); // No longer needed for cookie config
+      // Determine cookie configuration based on the request (passes request object)
+      const cookieConfig = getCookieConfig({ request });
       // Determine the domain to use in the SigninMessage
-      // Use the specific domain from config if set, otherwise fallback to request host or NEXTAUTH_URL host
+      // Use the specific domain from config if set, otherwise fallback to origin host or NEXTAUTH_URL host
+      const originHeader = request.headers.get("origin");
+      let originHost: string | undefined = undefined;
+      if (originHeader) {
+        try {
+          originHost = new URL(originHeader).hostname;
+        } catch (e) {
+          console.warn(
+            "Invalid Origin header for message domain:",
+            originHeader
+          );
+        }
+      }
+
       const messageDomain = cookieConfig.domain
         ? cookieConfig.domain.substring(1) // Remove leading dot for message
-        : requestHost?.split(":")[0] || new URL(process.env.NEXTAUTH_URL!).host;
+        : originHost || new URL(process.env.NEXTAUTH_URL!).host; // Use origin host if available
 
       const nonce = crypto.randomUUID();
 
@@ -103,7 +134,7 @@ export const authRouter = new Elysia()
   })
   .get(
     "/protected/test",
-    async ({ cookie, set }) => {
+    async ({ cookie, set, request }) => {
       const token = cookie["auth"]?.value;
 
       if (!token) {
@@ -132,11 +163,11 @@ export const authRouter = new Elysia()
       }),
     }
   )
-  .get("/auth/logout", ({ cookie, request }) => {
+  .get("/auth/logout", ({ cookie, request, set }) => {
     // Get host from request headers
-    const requestHost = request.headers.get("host");
-    // Determine cookie configuration based on the request host
-    const cookieConfig = getCookieConfig(requestHost);
+    // const requestHost = request.headers.get("host"); // No longer needed for cookie config
+    // Determine cookie configuration based on the request
+    const cookieConfig = getCookieConfig({ request });
 
     // Clear auth cookie using the determined configuration
     cookie["auth"]?.set({
@@ -163,21 +194,32 @@ export const authRouter = new Elysia()
     async ({ body, cookie, jwt, set, request }) => {
       try {
         // Get host from request headers
-        const requestHost = request.headers.get("host");
-        // Determine cookie configuration based on the request host
-        const cookieConfig = getCookieConfig(requestHost);
+        // const requestHost = request.headers.get("host"); // No longer needed for cookie config
+        // Determine cookie configuration based on the request
+        const cookieConfig = getCookieConfig({ request });
 
-        console.log("Request Host:", requestHost);
+        console.log("Request Origin:", request.headers.get("origin"));
         console.log("Calculated Cookie Config:", cookieConfig);
 
         const { message, signature } = body;
         const signinMessage = new SigninMessage(message);
 
         // Validate the domain in the signed message against the request origin or configured URL
+        const originHeader = request.headers.get("origin");
+        let originHost: string | undefined = undefined;
+        if (originHeader) {
+          try {
+            originHost = new URL(originHeader).hostname;
+          } catch (e) {
+            console.warn(
+              "Invalid Origin header for domain validation:",
+              originHeader
+            );
+          }
+        }
         const expectedDomain = cookieConfig.domain
           ? cookieConfig.domain.substring(1) // Remove leading dot
-          : requestHost?.split(":")[0] ||
-            new URL(process.env.NEXTAUTH_URL!).host;
+          : originHost || new URL(process.env.NEXTAUTH_URL!).host; // Use origin host if available
 
         console.log("SigninMessage Domain:", signinMessage.domain);
         console.log("Expected Domain:", expectedDomain);
@@ -264,8 +306,17 @@ export const authRouter = new Elysia()
           nonce: t.String(),
           publicKey: t.String(),
           statement: t.String(),
+          // Add other SigninMessage fields if necessary for validation
+          // issuedAt: t.Optional(t.String()),
+          // expirationTime: t.Optional(t.String()),
+          // chainId: t.Optional(t.String()),
+          // resources: t.Optional(t.Array(t.String()))
         }),
         signature: t.String(),
       }),
+      // Add cookie validation if needed, e.g., for auth_nonce existence
+      // cookie: t.Cookie({
+      //   auth_nonce: t.Optional(t.String())
+      // })
     }
   );
