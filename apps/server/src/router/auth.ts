@@ -1,10 +1,8 @@
 import { Elysia, t } from "elysia";
-import cookie from "@elysiajs/cookie";
 import { jwt } from "@elysiajs/jwt";
 import { SigninMessage, verifyToken } from "@workspace/auth";
 
 export const authRouter = new Elysia()
-  .use(cookie())
   .use(
     jwt({
       name: "jwt", // Decorator name: ctx.jwt

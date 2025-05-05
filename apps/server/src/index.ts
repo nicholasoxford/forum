@@ -13,6 +13,7 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
 
 const app = new Elysia()
   .use(cors())
+
   // Apply global Swagger documentation generation
   .use(swagger())
   .use(telegramRouter)
