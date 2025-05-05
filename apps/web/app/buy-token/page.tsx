@@ -21,7 +21,7 @@ import {
 import { Loader2, ExternalLink, ArrowRight } from "lucide-react";
 import { WalletButton } from "@workspace/ui/components";
 import { base64 } from "@metaplex-foundation/umi/serializers";
-import { useUmi } from "@/lib/umi";
+import { useUmi } from "@/hooks/use-umi";
 import { useTokens } from "@/hooks/use-tokens";
 import { TokenList } from "@/components/token-list";
 import { server } from "@/utils/elysia";

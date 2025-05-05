@@ -1,6 +1,6 @@
 import React from "react";
 import { Check } from "lucide-react";
-import { type Token } from "@/types/token";
+import { type Token } from "@workspace/types";
 import { BuyTokenDialog } from "./buy-token-dialog";
 import { SellTokenDialog } from "./sell-token-dialog";
 

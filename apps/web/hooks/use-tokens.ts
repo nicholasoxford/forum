@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Token } from "@/types/token";
+import { Token } from "@workspace/types";
 import { server } from "@/utils/elysia";
 
 // Get the API URL from environment variables

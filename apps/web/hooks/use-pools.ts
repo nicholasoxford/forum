@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Token } from "@/types/token";
+import { Token } from "@workspace/types";
 import { server } from "@/utils/elysia";
 
 export interface Pool {

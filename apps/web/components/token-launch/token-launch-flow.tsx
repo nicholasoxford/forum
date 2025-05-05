@@ -4,9 +4,9 @@ import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-ad
 import { mplToolbox } from "@metaplex-foundation/mpl-toolbox";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { Card, CardContent } from "@workspace/ui/components/card";
-import { createSplToken, SplTokenConfig } from "@/lib/create-spl-token";
+import { createSplToken, SplTokenConfig } from "@/utils/create-spl-token";
 import { toast } from "sonner";
-import { useUmi } from "@/lib/umi";
+import { useUmi } from "@/hooks/use-umi";
 import { ChevronRight } from "lucide-react";
 import { TokenBasicInfo } from "./token-basic-info";
 import { TokenEconomics } from "./token-economics";

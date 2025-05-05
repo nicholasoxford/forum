@@ -1,7 +1,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { TokenCard } from "./token-card";
-import { type Token } from "@/types/token";
+import { type Token } from "@workspace/types";
 import {
   Card,
   CardContent,

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { base58, base64 } from "@metaplex-foundation/umi/serializers";
-import { useUmi } from "@/lib/umi";
+import { useUmi } from "@/hooks/use-umi";
 import { usePoolInfo } from "./use-pool-info";
 import { server } from "@/utils/elysia";
 

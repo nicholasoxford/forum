@@ -11,7 +11,7 @@ import {
 } from "@workspace/ui/components/table";
 import { BuyTokenDialog } from "./buy-token-dialog";
 import { SellTokenDialog } from "./sell-token-dialog";
-import { type Token } from "@/types/token";
+import { type Token } from "@workspace/types";
 import { Check } from "lucide-react";
 
 interface TokenTableProps {
