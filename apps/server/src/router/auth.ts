@@ -22,6 +22,8 @@ export const authRouter = new Elysia()
         httpOnly: true,
         maxAge: 5 * 60,
         path: "/api/auth",
+        sameSite: "strict",
+        secure: process.env.NODE_ENV === "production",
       });
 
       // Client must supply their publicKey (e.g. via a header or query param)
@@ -81,6 +83,8 @@ export const authRouter = new Elysia()
       value: "",
       maxAge: 0,
       path: "/",
+      sameSite: "strict",
+      secure: process.env.NODE_ENV === "production",
     });
 
     return {
@@ -123,7 +127,13 @@ export const authRouter = new Elysia()
         });
 
         // Clear nonce cookie
-        cookie["auth_nonce"]?.set({ value: "", maxAge: 0, path: "/api/auth" });
+        cookie["auth_nonce"]?.set({
+          value: "",
+          maxAge: 0,
+          path: "/api/auth",
+          sameSite: "strict",
+          secure: process.env.NODE_ENV === "production",
+        });
 
         // Set session cookie
         cookie["auth"]?.set({
@@ -131,6 +141,8 @@ export const authRouter = new Elysia()
           httpOnly: true,
           maxAge: 7 * 24 * 3600,
           path: "/",
+          sameSite: "strict",
+          secure: process.env.NODE_ENV === "production",
         });
 
         // Return user information similar to NextAuth

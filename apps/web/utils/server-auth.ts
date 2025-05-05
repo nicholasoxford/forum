@@ -80,7 +80,8 @@ export async function authenticateWithServer(
 export async function logoutFromServer(): Promise<boolean> {
   try {
     // First, clear the cookie client-side
-    document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie =
+      "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; sameSite=strict; secure";
 
     // Call the server logout endpoint to clear the cookie server-side as well
     const { data, error } = await server.auth.logout.get({
