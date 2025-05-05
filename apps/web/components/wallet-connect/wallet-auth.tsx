@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, useState, useCallback, memo } from "react";
+import { FC, useState, useCallback, memo, useEffect } from "react";
 import { useWallet } from "@jup-ag/wallet-adapter";
 import { Button } from "@workspace/ui/components/button";
 import bs58 from "bs58";
@@ -20,18 +20,28 @@ export const WalletAuth: FC = memo(() => {
   const { session, status, isLoading, refreshSession } = useAuth();
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [pendingSignIn, setPendingSignIn] = useState(false);
+
+  // Effect to handle automatic signing after connection
+  useEffect(() => {
+    if (connected && pendingSignIn && !isSigningIn) {
+      handleSignIn();
+    }
+  }, [connected, pendingSignIn, isSigningIn]);
 
   const handleSignIn = useCallback(async () => {
     if (status === "authenticated") return;
 
     try {
-      // If not connected, open modal but don't start auth
+      // If not connected, open modal and set pending sign in
       if (!connected || connecting) {
         setIsWalletModalOpen(true);
+        setPendingSignIn(true);
         return;
       }
 
       setIsSigningIn(true);
+      setPendingSignIn(false);
 
       if (!publicKey || !signMessage) {
         console.error("Missing wallet requirements for sign in");
@@ -47,22 +57,17 @@ export const WalletAuth: FC = memo(() => {
         setIsSigningIn(false);
         return;
       }
-      console.log("signinMessage: ", signinMessage);
 
       // Prepare the complete message including the nonce
       const preparedMessage = `${signinMessage.statement}${signinMessage.nonce}`;
-      console.log("preparedMessage: ", preparedMessage);
 
       // Sign the complete message
       const encodedMessage = new TextEncoder().encode(preparedMessage);
-
       const signatureBytes = await signMessage(encodedMessage);
       const signature = bs58.encode(signatureBytes);
-      console.log("signature: ", signature);
 
       // Authenticate with server
       const authResult = await authenticateWithServer(signinMessage, signature);
-      console.log("authResult: ", authResult);
 
       if (!authResult) {
         console.error("Authentication failed");
@@ -77,6 +82,7 @@ export const WalletAuth: FC = memo(() => {
       router.refresh();
     } catch (error) {
       console.error("Error signing in:", error);
+      setPendingSignIn(false);
     } finally {
       setIsSigningIn(false);
     }
@@ -159,7 +165,10 @@ export const WalletAuth: FC = memo(() => {
       </Button>
       <WalletModal
         isOpen={isWalletModalOpen}
-        onClose={() => setIsWalletModalOpen(false)}
+        onClose={() => {
+          setIsWalletModalOpen(false);
+          setPendingSignIn(false);
+        }}
       />
     </>
   );

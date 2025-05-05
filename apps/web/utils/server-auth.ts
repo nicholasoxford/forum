@@ -140,12 +140,12 @@ export async function getCurrentSession(): Promise<any> {
     console.log("Session response:", { data, error });
 
     if (error) {
-      console.error("Session error:", error.value);
+      console.log("Session error:", error.value);
       return null;
     }
 
     if (!data?.user) {
-      console.error("No user data in session response");
+      console.log("No user data in session response");
       return null;
     }
 

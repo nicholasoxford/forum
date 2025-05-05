@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useWallet, WalletName } from "@jup-ag/wallet-adapter";
 
 interface WalletModalProps {
@@ -9,7 +9,7 @@ interface WalletModalProps {
 }
 
 export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
-  const { wallets, select, connect } = useWallet();
+  const { wallets, select, connect, connected, connecting } = useWallet();
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
 
   // Close modal when Escape key is pressed
@@ -52,6 +52,22 @@ export const WalletModal = ({ isOpen, onClose }: WalletModalProps) => {
     select(walletName as WalletName);
     onClose();
   };
+
+  const handleSignIn = useCallback(async () => {
+    if (status === "authenticated") return;
+
+    try {
+      if (!connected || connecting) {
+        // First select the wallet, then connect
+        select(selectedWallet as WalletName);
+        await connect();
+        return;
+      }
+      // ... rest of your sign in logic
+    } catch (error) {
+      console.error("Error signing in:", error);
+    }
+  }, [connected, connecting, select, connect, selectedWallet]);
 
   if (!isOpen) return null;
 
