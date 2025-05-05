@@ -5,9 +5,10 @@ import { SigninMessage, verifyToken } from "@workspace/auth";
 // Helper to determine cookie settings based on environment
 const getCookieConfig = () => {
   const isProd = process.env.NODE_ENV === "production";
-  const domain = isProd ? ".groupy.fun" : undefined; // Add domain in production only
+  // Use .groupy.fun to work with both groupy.fun and www.groupy.fun
+  const domain = isProd ? ".groupy.fun" : undefined;
   return {
-    sameSite: isProd ? ("strict" as const) : ("lax" as const), // Correctly type sameSite values
+    sameSite: isProd ? ("strict" as const) : ("lax" as const),
     secure: isProd,
     domain,
   };
@@ -22,6 +23,24 @@ export const authRouter = new Elysia()
       exp: "7d", // Tokens expire in 7 days
     })
   )
+  // Set CORS headers for all routes to allow www.groupy.fun
+  .onRequest(({ request, set }) => {
+    const origin = request.headers.get("origin");
+    // Allow access from www.groupy.fun or any local host in development
+    if (
+      origin &&
+      (origin === "https://www.groupy.fun" ||
+        origin === "https://groupy.fun" ||
+        origin.startsWith("http://localhost:"))
+    ) {
+      set.headers["Access-Control-Allow-Origin"] = origin;
+      set.headers["Access-Control-Allow-Credentials"] = "true";
+      set.headers["Access-Control-Allow-Methods"] =
+        "GET, POST, PUT, DELETE, OPTIONS";
+      set.headers["Access-Control-Allow-Headers"] =
+        "Content-Type, Authorization, X-Public-Key";
+    }
+  })
   .get("/auth/message", ({ headers, cookie, set }) => {
     try {
       const domain = new URL(process.env.NEXTAUTH_URL!).host;

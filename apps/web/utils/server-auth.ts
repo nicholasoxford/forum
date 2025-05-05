@@ -6,6 +6,7 @@ function getCookieDomainConfig() {
   const isProd =
     typeof window !== "undefined" &&
     (window.location.hostname === "groupy.fun" ||
+      window.location.hostname === "www.groupy.fun" ||
       window.location.hostname.endsWith(".groupy.fun"));
 
   return {
