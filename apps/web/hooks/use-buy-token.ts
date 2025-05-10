@@ -68,11 +68,7 @@ export function useBuyToken() {
 
         // Execute the transaction with both request data and transaction-specific data
         // The path "instructions.buy" tells the system this is a "buy" transaction
-        return await executeTransaction(
-          "instructions.buy",
-          requestData,
-          transactionData
-        );
+        return await executeTransaction("buy", requestData, transactionData);
       } catch (error) {
         console.error("Error buying token:", error);
         return false;

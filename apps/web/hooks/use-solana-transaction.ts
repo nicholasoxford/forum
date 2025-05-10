@@ -19,7 +19,9 @@ export interface TransactionResult {
   error?: string;
 }
 
-export function useSolanaTransaction<RequestData, ResponseData>() {
+export function useSolanaTransaction<
+  RequestData extends Record<string, any>,
+>() {
   const umi = useUmi();
   const { publicKey, connected } = useWallet();
 
@@ -35,7 +37,11 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
   >(null);
 
   const executeTransaction = useCallback(
-    async (path: string, requestData: RequestData, transactionData?: any) => {
+    async (
+      path: keyof typeof server.instructions,
+      requestData: RequestData,
+      transactionData?: any
+    ) => {
       if (!publicKey) {
         setStatus({ type: "error", message: "Wallet not connected" });
         return false;
@@ -48,21 +54,15 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
 
         setStatus({ type: "info", message: "Preparing transaction..." });
 
-        // Parse the path to call the correct endpoint
-        const pathParts = path.split(".");
-        let endpoint: any = server;
-
-        // Navigate through the path to get to the endpoint
-        for (const part of pathParts) {
-          endpoint = endpoint[part];
-          if (!endpoint) {
-            throw new Error(`Invalid endpoint path: ${path}`);
-          }
+        // Get the endpoint from server.instructions
+        const endpoint = server.instructions[path];
+        if (!endpoint) {
+          throw new Error(`Invalid endpoint path: ${path}`);
         }
 
         // Call the endpoint to get the serialized transaction
         const { data: endpointResponse, error: endpointError } =
-          await endpoint.post(requestData);
+          await endpoint.post(requestData as any);
 
         if (endpointError) {
           throw new Error(
@@ -71,7 +71,14 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
         }
 
         // Get serialized transaction from response
-        const serializedTx = endpointResponse.serializedTransaction;
+        const serializedTx =
+          "serializedTransaction" in endpointResponse
+            ? endpointResponse.serializedTransaction
+            : null;
+
+        if (!serializedTx) {
+          throw new Error("No transaction data received from server");
+        }
 
         // Process the serialized transaction
         setStatus({

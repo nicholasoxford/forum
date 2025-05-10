@@ -60,11 +60,7 @@ export function useSellToken() {
         };
 
         // Execute the transaction with both request data and transaction-specific data
-        return await executeTransaction(
-          "instructions.sell",
-          requestData,
-          transactionData
-        );
+        return await executeTransaction("sell", requestData, transactionData);
       } catch (error) {
         console.error("Error selling token:", error);
         return false;
