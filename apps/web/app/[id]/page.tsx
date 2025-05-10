@@ -13,14 +13,9 @@ export default async function TokenPage({ params }: { params: paramsType }) {
   const { id } = await params;
 
   try {
-    // Get the API key from environment variables
-    const RPC_URL = process.env.RPC_URL;
-
-    if (!RPC_URL) {
-      throw new Error("Helius API key not configured");
-    }
-
     const { data: tokenData, error } = await server.tokens({ id }).get({});
+    console.log("TOKEN DATA: ", tokenData);
+    console.log("ERROR: ", error?.value.message);
     if (error) {
       redirect("/");
     }

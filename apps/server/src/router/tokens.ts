@@ -11,7 +11,7 @@ import { createTelegramChannel } from "@workspace/telegram";
 import { launchPool } from "@workspace/vertigo";
 import { createSolanaConnection } from "@workspace/solana";
 import type { HeliusAssetData } from "@workspace/types"; // Import the shared type
-
+import fs from "fs";
 // Define the schema for the launch token request body
 const LaunchTokenBodySchema = t.Object({
   tokenMintAddress: t.String(),
@@ -156,17 +156,22 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
         id: t.String(),
       }),
       response: {
-        200: t.Object({
-          tokenMintAddress: t.String(),
-          tokenSymbol: t.String(),
-          tokenName: t.String(),
-          decimals: t.Number(),
-          transferFeeBasisPoints: t.Number(),
-          maximumFee: t.String(),
-          metadataUri: t.String(),
-          targetMarketCap: t.String(),
-          poolAddress: t.String(),
-        }),
+        200: t.Object(
+          {
+            tokenMintAddress: t.String(),
+            tokenSymbol: t.String(),
+            tokenName: t.String(),
+            decimals: t.Number(),
+            transferFeeBasisPoints: t.Number(),
+            maximumFee: t.String(),
+            metadataUri: t.String(),
+            targetMarketCap: t.String(),
+            poolAddress: t.String(),
+          },
+          {
+            additionalProperties: true,
+          }
+        ),
         400: t.Object({
           error: t.String(),
           message: t.Optional(t.String()),
@@ -202,6 +207,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
           set.status = 500;
           return { error: "Server configuration error" };
         }
+        console.log("ABOUT TO FETCH ASSET: ", id);
 
         const response = await fetch(RPC_URL, {
           method: "POST",
@@ -215,7 +221,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
             params: { id: id, displayOptions: { showFungible: true } },
           }),
         });
-
+        console.log("RESPONSE: ", response);
         if (!response.ok) {
           const errorBody = await response.text();
           console.error(
@@ -233,8 +239,12 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
         }
 
         const data = await response.json();
-
-        if (!data.result) {
+        const tokenData = data.result as HeliusAssetData;
+        // write data.result to a file
+        fs.writeFileSync("data.json", JSON.stringify(tokenData, null, 2));
+        // log all keys of data.result
+        console.log("DATA KEYS: ", Object.keys(tokenData));
+        if (!tokenData) {
           console.warn(
             `[tokens/:id GET] Helius API returned no result for ID: ${id}`
           );
@@ -243,7 +253,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
         }
 
         // Success: Return the result directly.
-        return data.result;
+        return tokenData;
       } catch (err: any) {
         // Catch errors from fetch/JSON parsing or unexpected issues
         console.error("[tokens/:id GET] Internal processing error:", err);
@@ -258,78 +268,83 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
       // Update response schema to include error responses
       response: {
         // Success response
-        200: t.Object({
-          interface: t.String(),
-          id: t.String(),
-          content: t.Optional(
-            t.Object({
-              metadata: t.Optional(
-                t.Object({
-                  name: t.Optional(t.String()),
-                  symbol: t.Optional(t.String()),
-                  description: t.Optional(t.String()),
-                  attributes: t.Optional(
-                    t.Array(
-                      t.Object({
-                        trait_type: t.String(),
-                        value: t.String(),
-                      })
-                    )
-                  ),
-                })
-              ),
-              files: t.Optional(
-                t.Array(
-                  t.Object({
-                    uri: t.String(),
-                    cdn_uri: t.String(),
-                    mime: t.String(),
-                  })
-                )
-              ),
-              links: t.Optional(
-                t.Object({
-                  image: t.Optional(t.String()),
-                })
-              ),
-            })
-          ),
-          grouping: t.Optional(
-            t.Array(
+        200: t.Object(
+          {
+            interface: t.String(),
+            id: t.String(),
+            content: t.Optional(
               t.Object({
-                group_key: t.String(),
-                group_value: t.String(),
-              })
-            )
-          ),
-          ownership: t.Optional(
-            t.Object({
-              owner: t.Optional(t.String()),
-            })
-          ),
-          token_info: t.Optional(
-            t.Object({
-              supply: t.Optional(t.Number()),
-              decimals: t.Optional(t.Number()),
-              token_program: t.Optional(t.String()),
-              mint_authority: t.Optional(t.String()),
-              freeze_authority: t.Optional(t.String()),
-            })
-          ),
-          mint_extensions: t.Optional(
-            t.Object({
-              transfer_fee_config: t.Optional(
-                t.Object({
-                  newer_transfer_fee: t.Optional(
+                metadata: t.Optional(
+                  t.Object({
+                    name: t.Optional(t.String()),
+                    symbol: t.Optional(t.String()),
+                    description: t.Optional(t.String()),
+                    attributes: t.Optional(
+                      t.Array(
+                        t.Object({
+                          trait_type: t.String(),
+                          value: t.String(),
+                        })
+                      )
+                    ),
+                  })
+                ),
+                files: t.Optional(
+                  t.Array(
                     t.Object({
-                      transfer_fee_basis_points: t.Optional(t.Number()),
+                      uri: t.String(),
+                      cdn_uri: t.String(),
+                      mime: t.String(),
                     })
-                  ),
+                  )
+                ),
+                links: t.Optional(
+                  t.Object({
+                    image: t.Optional(t.String()),
+                  })
+                ),
+              })
+            ),
+            grouping: t.Optional(
+              t.Array(
+                t.Object({
+                  group_key: t.String(),
+                  group_value: t.String(),
                 })
-              ),
-            })
-          ),
-        }),
+              )
+            ),
+            ownership: t.Optional(
+              t.Object({
+                owner: t.Optional(t.String()),
+              })
+            ),
+            token_info: t.Optional(
+              t.Object({
+                supply: t.Optional(t.Number()),
+                decimals: t.Optional(t.Number()),
+                token_program: t.Optional(t.String()),
+                mint_authority: t.Optional(t.String()),
+                freeze_authority: t.Optional(t.String()),
+              })
+            ),
+            mint_extensions: t.Optional(
+              t.Object({
+                transfer_fee_config: t.Optional(
+                  t.Object({
+                    newer_transfer_fee: t.Optional(
+                      t.Object({
+                        transfer_fee_basis_points: t.Optional(t.Number()),
+                      })
+                    ),
+                  })
+                ),
+              })
+            ),
+          },
+          {
+            additionalProperties: true,
+          }
+        ),
         // Error responses
         400: t.Object({
           error: t.String(),

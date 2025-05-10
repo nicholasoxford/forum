@@ -13,6 +13,7 @@ import { BuyTokenDialog } from "./buy-token-dialog";
 import { SellTokenDialog } from "./sell-token-dialog";
 import { type Token } from "@workspace/types";
 import { Check } from "lucide-react";
+import Link from "next/link";
 
 interface TokenTableProps {
   tokens: Token[];
@@ -73,20 +74,30 @@ export function TokenTable({
                 <TableCell className="font-medium">
                   <div>
                     <div className="flex items-center">
-                      <span className="font-medium">
-                        {token.tokenName}{" "}
-                        <span className="text-zinc-500">
-                          ({token.tokenSymbol})
+                      <Link
+                        href={`/${token.tokenMintAddress}`}
+                        className="hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span className="font-medium">
+                          {token.tokenName}{" "}
+                          <span className="text-zinc-500">
+                            ({token.tokenSymbol})
+                          </span>
                         </span>
-                      </span>
+                      </Link>
                       {isSelected && (
                         <Check className="h-4 w-4 ml-2 text-violet-600" />
                       )}
                     </div>
-                    <div className="text-xs text-zinc-500 font-mono">
+                    <Link
+                      href={`/${token.tokenMintAddress}`}
+                      className="text-xs text-zinc-500 font-mono hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {token.tokenMintAddress.slice(0, 8)}...
                       {token.tokenMintAddress.slice(-8)}
-                    </div>
+                    </Link>
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
