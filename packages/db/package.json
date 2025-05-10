@@ -6,6 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
+    "dev": "fly proxy 3306 --app mysql-bold-flower-4970",
     "lint": "eslint . --max-warnings 0",
     "db:migrate": "drizzle-kit generate --config=./src/drizzle.config.ts",
     "db:push": "drizzle-kit push --config=./src/drizzle.config.ts",

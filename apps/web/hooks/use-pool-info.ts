@@ -44,7 +44,7 @@ export function usePoolInfo() {
       setLoading(true);
       setStatus({ type: "info", message: "Fetching pool information..." });
 
-      const { data, error } = await server.tokens({ tokenMint }).pool.get();
+      const { data, error } = await server.tokens({ id: tokenMint }).pool.get();
 
       if (error) {
         setStatus({

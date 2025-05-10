@@ -40,5 +40,7 @@ export function getDb() {
   return _db;
 }
 
+export type Database = ReturnType<typeof getDb>;
+
 // Export schema for use elsewhere in the application
 export * from "./schema";

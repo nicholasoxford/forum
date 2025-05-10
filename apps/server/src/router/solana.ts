@@ -1,13 +1,9 @@
-import { Elysia, t } from "elysia";
+import { initializeUmi, waitForSignatureConfirmation } from "@workspace/solana";
+import { Elysia, env, t } from "elysia";
+import { base58, base64 } from "@metaplex-foundation/umi/serializers";
+import { HELIUS_API_KEY } from "@workspace/types";
 
-interface SolanaEnv {
-  HELIUS_API_KEY: string;
-}
-
-// Get environment variables
-const env: SolanaEnv = {
-  HELIUS_API_KEY: process.env.HELIUS_API_KEY || "",
-};
+const HELIUS_RPC_URL = "https://devnet.helius-rpc.com/?api-key=";
 
 export const solanaRouter = new Elysia({ prefix: "/solana" })
   .post(
@@ -21,24 +17,21 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
       }
 
       try {
-        const response = await fetch(
-          `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: "1",
-              method: "getSignatureStatuses",
-              params: [
-                [signature],
-                { searchTransactionHistory: searchHistory ?? true },
-              ],
-            }),
-          }
-        );
+        const response = await fetch(`${HELIUS_RPC_URL}${HELIUS_API_KEY}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "1",
+            method: "getSignatureStatuses",
+            params: [
+              [signature],
+              { searchTransactionHistory: searchHistory ?? true },
+            ],
+          }),
+        });
 
         const result = await response.json();
         return result;
@@ -68,83 +61,48 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
   .post(
     "/wait-for-signature",
     async ({ body }) => {
-      const { HELIUS_API_KEY } = env;
-      const { signature, timeout = 60000, interval = 200 } = body;
+      const { signature, timeout, interval } = body;
 
-      if (!HELIUS_API_KEY) {
-        return {
-          success: false,
-          status: "error",
-          message: "HELIUS_API_KEY not configured",
-        };
-      }
-
-      const startTime = Date.now();
-
-      while (Date.now() - startTime < timeout) {
-        try {
-          console.log("Checking signature status...");
-          console.log(signature);
-          const response = await fetch(
-            `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: "1",
-                method: "getSignatureStatuses",
-                params: [[signature], { searchTransactionHistory: true }],
-              }),
-            }
-          );
-
-          const result = await response.json();
-          console.log("Result received");
-          console.log(result);
-          const status = result.result?.value?.[0];
-
-          // If we have a status and it's not null, transaction is confirmed
-          if (status) {
-            if (status.err) {
-              return {
-                success: false,
-                status: "failed",
-                error: status.err,
-                confirmation: status,
-              };
-            } else {
-              console.log("Transaction confirmed");
-              return {
-                success: true,
-                status: "confirmed",
-                confirmation: status,
-              };
-            }
-          }
-
-          // Wait before checking again
-          await new Promise((resolve) => setTimeout(resolve, interval));
-        } catch (error) {
-          console.error("Error checking signature status:", error);
-          // Continue checking despite error
-        }
-      }
-      console.log("Timeout reached");
-      // Timeout reached
-      return {
-        success: false,
-        status: "timeout",
-        message: `Transaction not confirmed after ${timeout}ms`,
-      };
+      return waitForSignatureConfirmation({
+        signature,
+        timeout,
+        interval,
+        heliusApiKey: HELIUS_API_KEY,
+      });
     },
     {
       body: t.Object({
         signature: t.String(),
         timeout: t.Optional(t.Number()),
         interval: t.Optional(t.Number()),
+      }),
+    }
+  )
+
+  .post(
+    "/sendAndConfirmWithDatabase",
+    async ({ body }) => {
+      const { signature } = body;
+      const umi = initializeUmi();
+      const deserializedTxAsU8 = base64.serialize(signature);
+      const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
+      console.log("about to send transaction");
+      const response = await umi.rpc.sendTransaction(deserializedTx, {
+        skipPreflight: true,
+      });
+      const signatureString = base58.deserialize(response)[0];
+      console.log("signatureString", signatureString);
+      const confirmation = await waitForSignatureConfirmation({
+        signature: signatureString,
+        timeout: 60000,
+        interval: 200,
+        heliusApiKey: HELIUS_API_KEY,
+      });
+      return confirmation;
+    },
+    {
+      body: t.Object({
+        signature: t.String(),
       }),
     }
   );

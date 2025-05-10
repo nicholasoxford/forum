@@ -20,7 +20,7 @@ export function useTokens(showOnlyWithPools = true) {
       setError(null);
 
       // Fetch tokens from the server's endpoint
-      const { data } = await server.tokens.index.get();
+      const { data } = await server.tokens[""].get();
 
       if (data) {
         // If showOnlyWithPools is true, filter out tokens without pools

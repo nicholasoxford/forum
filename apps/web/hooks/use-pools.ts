@@ -29,7 +29,7 @@ export function usePools() {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await server.tokens.index.get();
+      const { data, error } = await server.tokens[""].get();
 
       if (!error && data) {
         const allTokens: Token[] = data || [];
