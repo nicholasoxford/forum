@@ -1,0 +1,148 @@
+"use client";
+
+import { Button } from "@workspace/ui/components/button";
+import { FC, useRef, useState } from "react";
+import { useImageUpload } from "@/hooks/use-image-upload";
+
+// Maximum file size (5MB)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const API_BASE_URL = "https://forum-lingering-leaf-9073.fly.dev";
+
+interface ImageUploaderProps {
+  onImageUpload: (imageUrl: string) => void;
+  onError?: (error: Error) => void;
+  imageUrl?: string;
+  className?: string;
+}
+
+export const ImageUploader: FC<ImageUploaderProps> = ({
+  onImageUpload,
+  onError,
+  imageUrl,
+  className = "",
+}) => {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(imageUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadImage, isUploading, uploadProgress, error } = useImageUpload();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      onError?.(new Error("Please upload an image file"));
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      onError?.(new Error("File size exceeds the 5MB limit"));
+      return;
+    }
+
+    // Create local preview immediately
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const publicUrl = await uploadImage(file);
+      onImageUpload(publicUrl);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      onError?.(error instanceof Error ? error : new Error("Upload failed"));
+      // If upload fails, remove the preview
+      if (!imageUrl) {
+        setPreviewUrl(null);
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const removeImage = () => {
+    setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    onImageUpload("");
+  };
+
+  return (
+    <div className={`space-y-2 ${className}`}>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+        aria-label="Upload image"
+      />
+
+      {previewUrl ? (
+        <div className="relative w-full aspect-square max-w-[200px] mx-auto">
+          <img
+            src={previewUrl}
+            alt="Preview"
+            className="w-full h-full object-cover rounded-lg"
+          />
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="absolute top-2 right-2"
+            onClick={removeImage}
+            disabled={isUploading}
+          >
+            ✕
+          </Button>
+        </div>
+      ) : (
+        <div
+          onClick={triggerFileInput}
+          className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+        >
+          <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-muted mb-3">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
+              <rect x="16" y="5" width="6" height="6" rx="1" />
+              <path d="m8 18 4-4 2 2" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium mb-1">
+            Drag & drop or click to upload
+          </p>
+          <p className="text-xs text-muted-foreground">
+            JPG, PNG or GIF (max 5MB)
+          </p>
+        </div>
+      )}
+
+      {isUploading && (
+        <div className="w-full">
+          <p className="text-sm text-center">Uploading...</p>
+          <div className="w-full bg-muted rounded-full h-2 mt-1">
+            <div
+              className="bg-primary h-2 rounded-full"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

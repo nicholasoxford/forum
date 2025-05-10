@@ -1,13 +1,13 @@
 {
   "interface": "FungibleToken",
-  "id": "8AodgmY7nKSDrYYDh7AN9g7ukD1aiE8DAi3XKRxoe4fv",
+  "id": "7UJ53zWDsUUjuUf6NYM9Xw2uxkyNnDqhHbp88A7pReWd",
   "content": {
     "$schema": "https://schema.metaplex.com/nft1.0.json",
     "json_uri": "",
     "files": [],
     "metadata": {
-      "name": "no",
-      "symbol": "noo"
+      "name": "wow",
+      "symbol": "wow"
     },
     "links": {}
   },
@@ -52,15 +52,15 @@
   "mint_extensions": {
     "metadata": {
       "uri": "",
-      "mint": "8AodgmY7nKSDrYYDh7AN9g7ukD1aiE8DAi3XKRxoe4fv",
-      "name": "no",
-      "symbol": "noo",
+      "mint": "7UJ53zWDsUUjuUf6NYM9Xw2uxkyNnDqhHbp88A7pReWd",
+      "name": "wow",
+      "symbol": "wow",
       "update_authority": "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz",
       "additional_metadata": []
     },
     "metadata_pointer": {
       "authority": "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz",
-      "metadata_address": "8AodgmY7nKSDrYYDh7AN9g7ukD1aiE8DAi3XKRxoe4fv"
+      "metadata_address": "7UJ53zWDsUUjuUf6NYM9Xw2uxkyNnDqhHbp88A7pReWd"
     },
     "transfer_fee_config": {
       "withheld_amount": 0,

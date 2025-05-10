@@ -2,11 +2,11 @@ import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { swagger } from "@elysiajs/swagger";
 import { telegramRouter } from "./router/telegram";
-import { s3Router } from "./router/s3";
 import { solanaRouter } from "./router/solana";
 import { tokensRouter } from "./router/tokens";
 import { instructionsRouter } from "./router/instructions";
 import { authRouter, protectedRoutes } from "./router/auth";
+import { storageRouter } from "./router/storage";
 // Use PORT environment variable or fallback to 3000
 const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
 
@@ -16,7 +16,7 @@ const app = new Elysia()
   // Apply global Swagger documentation generation
   .use(swagger())
   .use(telegramRouter)
-  .use(s3Router)
+  .use(storageRouter)
   .use(solanaRouter)
   .use(tokensRouter)
   .use(instructionsRouter)

@@ -23,7 +23,7 @@ const env: S3Env = {
   R2_PUBLIC_URL: process.env.R2_PUBLIC_URL || "",
 };
 
-export const s3Router = new Elysia({ prefix: "/storage" })
+export const storageRouter = new Elysia({ prefix: "/storage" })
   // Generate presigned URL for direct uploads to R2
   .post(
     "/upload-url",
@@ -47,13 +47,7 @@ export const s3Router = new Elysia({ prefix: "/storage" })
         const uri = await storeMetadata(body, body.prefix);
         return { uri };
       } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Failed to store metadata" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+        return { error: "Failed to store metadata" };
       }
     },
     {
@@ -64,6 +58,14 @@ export const s3Router = new Elysia({ prefix: "/storage" })
         image: t.String(),
         prefix: t.Optional(t.String()),
       }),
+      response: {
+        200: t.Object({
+          uri: t.String(),
+        }),
+        400: t.Object({
+          error: t.String(),
+        }),
+      },
     }
   )
 

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@workspace/ui/components/card";
 import { createSplToken, SplTokenConfig } from "@/utils/create-spl-token";
 import { toast } from "sonner";
 import { useUmi } from "@/hooks/use-umi";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import { ChevronRight } from "lucide-react";
 import { TokenBasicInfo } from "./token-basic-info";
 import { TokenEconomics } from "./token-economics";
@@ -21,6 +22,7 @@ const ONE_BILLION = 1_000_000_000;
 export const TokenLaunchFlow = () => {
   const wallet = useWallet();
   const umi = useUmi();
+  const { uploadImage, isUploading: uploadingImage } = useImageUpload();
   umi.use(mplToolbox());
   umi.use(mplTokenMetadata());
   umi.use(walletAdapterIdentity(wallet));
@@ -31,6 +33,7 @@ export const TokenLaunchFlow = () => {
   const [description, setDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
   // Token economics state
   const [decimals, setDecimals] = useState<number>(DEFAULT_DECIMALS);
@@ -47,7 +50,6 @@ export const TokenLaunchFlow = () => {
 
   // Process state
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [mintAddress, setMintAddress] = useState<string | null>(null);
   const [txSignature, setTxSignature] = useState<string | null>(null);
@@ -68,48 +70,80 @@ export const TokenLaunchFlow = () => {
     setCurrentStep((prev) => Math.max(1, prev - 1));
   };
 
-  // Upload image via API
-  const uploadImage = async (): Promise<string> => {
-    if (!selectedImage) {
-      throw new Error("No image selected");
+  // Handle image selection and upload
+  const handleImageSelect = async (file: File | null) => {
+    if (!file) {
+      setSelectedImage(null);
+      setImagePreview(null);
+      setUploadedImageUrl(null);
+      return;
     }
 
-    setUploadingImage(true);
+    setSelectedImage(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImagePreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
     try {
-      // The image uploader now directly uploads to S3 using the correct endpoint,
-      // so we just need to handle the image preview here
-      return imagePreview || "";
-    } finally {
-      setUploadingImage(false);
+      const publicUrl = await uploadImage(file);
+      setUploadedImageUrl(publicUrl);
+      // Update the preview to use the uploaded image URL
+      setImagePreview(publicUrl);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Failed to upload image", {
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+      setSelectedImage(null);
+      setImagePreview(null);
+      setUploadedImageUrl(null);
     }
   };
 
   // Create metadata JSON and upload it
   const createMetadata = async (imageUrl: string): Promise<string> => {
     try {
-      // Create metadata using the metadata API endpoint
-      const metadataResponse = await fetch(
-        "https://forum-lingering-leaf-9073.fly.dev/api/metadata",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name,
-            symbol,
-            description: description || `Token for the ${name} community chat.`,
-            image: imageUrl,
-          }),
-        }
-      );
+      // Validate that we have a proper URL
+      if (!imageUrl.startsWith("http")) {
+        throw new Error("Invalid image URL format");
+      }
 
-      if (!metadataResponse.ok) {
+      // Create metadata using the metadata API endpoint
+      const { data, error } = await server.storage.metadata.post({
+        name: name,
+        symbol: symbol,
+        description: description,
+        image: imageUrl,
+      });
+
+      if (error) {
+        console.error("Metadata creation error:", error);
+        if (typeof error === "object" && error !== null) {
+          if ("message" in error && typeof error.message === "string") {
+            throw new Error(error.message);
+          } else if (
+            "value" in error &&
+            typeof error.value === "object" &&
+            error.value !== null &&
+            "message" in error.value &&
+            typeof error.value.message === "string"
+          ) {
+            throw new Error(error.value.message);
+          }
+        }
         throw new Error("Failed to create metadata");
       }
 
-      const { uri } = await metadataResponse.json();
-      return uri;
+      if (!data?.uri) {
+        throw new Error("No metadata URI returned");
+      }
+
+      return data.uri;
     } catch (error) {
       console.error("Error creating metadata:", error);
       throw error;
@@ -132,17 +166,13 @@ export const TokenLaunchFlow = () => {
     setTxSignature(null);
 
     try {
-      // Get the image URL from the preview or upload
-      let imageUrl = imagePreview || "";
-      if (selectedImage) {
-        imageUrl = await uploadImage();
+      // Only use the uploaded image URL, not the preview
+      if (!uploadedImageUrl) {
+        throw new Error("Please upload a token image first");
       }
 
       // Create metadata and get URI
-      let metadataUri = "";
-      if (imageUrl) {
-        metadataUri = await createMetadata(imageUrl);
-      }
+      const metadataUri = await createMetadata(uploadedImageUrl);
 
       // Always use 1 billion tokens as the initial mint amount
       const fixedInitialMintAmount = (
@@ -184,21 +214,25 @@ export const TokenLaunchFlow = () => {
         // Create group chat automatically
         if (error) {
           console.error("Failed to save token to database:", error);
-        } else {
-          if (data.telegramChannelId) {
-            setTelegramChannelIdCreated(data.telegramChannelId);
-            setTelegramUsernameCreated(data.telegramUsername || null);
-            setGroupChatCreated(true);
-          }
-          setCurrentStep(3); // Success step
+          throw new Error(
+            error.value?.message || "Failed to save token to database"
+          );
         }
+
+        if (data.telegramChannelId) {
+          setTelegramChannelIdCreated(data.telegramChannelId);
+          setTelegramUsernameCreated(data.telegramUsername || null);
+          setGroupChatCreated(true);
+        }
+        setCurrentStep(3); // Success step
+
+        toast.success(`${name} token created successfully!`, {
+          description: `Your token is now live on the Solana blockchain.`,
+        });
       } catch (dbError) {
         console.error("Error saving token to database:", dbError);
+        throw new Error("Failed to save token to database");
       }
-
-      toast.success(`${name} token created successfully!`, {
-        description: `Your token is now live on the Solana blockchain.`,
-      });
     } catch (error: any) {
       console.error("Token creation failed:", error);
       toast.error("Token creation failed", {
@@ -219,11 +253,9 @@ export const TokenLaunchFlow = () => {
     customMarketCap,
     isCustomMarketCap,
     umi,
-    selectedImage,
-    imagePreview,
+    uploadedImageUrl,
     description,
     createMetadata,
-    uploadImage,
   ]);
 
   // Render appropriate step content
@@ -239,11 +271,11 @@ export const TokenLaunchFlow = () => {
             description={description}
             setDescription={setDescription}
             selectedImage={selectedImage}
-            setSelectedImage={setSelectedImage}
+            setSelectedImage={handleImageSelect}
             imagePreview={imagePreview}
             setImagePreview={setImagePreview}
             onNext={goToNextStep}
-            isLoading={isLoading}
+            isLoading={isLoading || uploadingImage}
           />
         );
       case 2:
