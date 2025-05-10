@@ -12,8 +12,8 @@ COPY packages/auth/package.json ./packages/auth/package.json
 COPY packages/db/package.json ./packages/db/package.json
 COPY packages/solana/package.json ./packages/solana/package.json
 COPY packages/services/package.json ./packages/services/package.json
-COPY packages/transactions/package.json ./packages/transactions/package.json
 COPY packages/telegram/package.json ./packages/telegram/package.json
+COPY packages/transactions/package.json ./packages/transactions/package.json
 COPY packages/types/package.json ./packages/types/package.json
 COPY packages/vertigo/package.json ./packages/vertigo/package.json
 
@@ -28,11 +28,11 @@ COPY packages/typescript-config ./packages/typescript-config
 COPY packages/auth ./packages/auth
 COPY packages/db ./packages/db
 COPY packages/solana ./packages/solana
+COPY packages/telegram ./packages/telegram
+COPY packages/types ./packages/types
 COPY packages/transactions ./packages/transactions
 COPY packages/services ./packages/services
-COPY packages/types ./packages/types
 COPY packages/vertigo ./packages/vertigo
-COPY packages/telegram ./packages/telegram
 COPY apps/server ./apps/server
 
 # Set environment variables

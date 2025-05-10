@@ -1,19 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { base64 } from "@metaplex-foundation/umi/serializers";
-import { useUmi } from "@/hooks/use-umi";
 import { usePoolInfo } from "./use-pool-info";
-import { server } from "@/utils/elysia";
-
-interface SellTokenStatus {
-  type: "success" | "error" | "info" | null;
-  message: string;
-}
+import { useSolanaTransaction } from "./use-solana-transaction";
 
 export function useSellToken() {
-  const umi = useUmi();
   const { publicKey, connected } = useWallet();
   const {
     fetchPoolInfo,
@@ -22,116 +14,68 @@ export function useSellToken() {
     status: poolInfoStatus,
   } = usePoolInfo();
 
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<SellTokenStatus>({
-    type: null,
-    message: "",
-  });
-  const [txSignature, setTxSignature] = useState<string | null>(null);
+  // Use our generic transaction hook for the transaction part
+  const {
+    loading: txLoading,
+    status: txStatus,
+    txSignature,
+    executeTransaction,
+  } = useSolanaTransaction();
 
   // Sell token functionality
   const sellToken = useCallback(
     async (tokenMint: string, amount: string) => {
       if (!publicKey) {
-        setStatus({ type: "error", message: "Wallet not connected" });
         return false;
       }
 
       if (!tokenMint) {
-        setStatus({
-          type: "error",
-          message: "Please enter a token mint address",
-        });
         return false;
       }
 
       if (!amount || parseFloat(amount) <= 0) {
-        setStatus({
-          type: "error",
-          message: "Please enter a valid amount greater than 0",
-        });
+        return false;
+      }
+
+      // Check if pool info is available
+      if (!poolInfo || !poolInfo.success) {
         return false;
       }
 
       try {
-        setLoading(true);
-        setTxSignature(null);
-        setStatus({ type: "info", message: "Preparing transaction..." });
+        // API request data for preparing the transaction
+        const requestData = {
+          tokenMintAddress: tokenMint,
+          userAddress: publicKey.toString(),
+          amount: parseFloat(amount),
+        };
 
-        // Call API to get transaction instructions
-        const { data: instructionsResponse, error: instructionsError } =
-          await server.instructions.sell.post({
-            tokenMintAddress: tokenMint,
-            userAddress: publicKey.toString(),
-            amount: parseFloat(amount),
-          });
+        // Transaction-specific data for database recording
+        const transactionData = {
+          tokenMintAddress: tokenMint,
+          poolAddress: poolInfo.poolAddress,
+          mintA: "11111111111111111111111111111111", // Default to SOL
+          mintB: tokenMint,
+          amount: amount,
+        };
 
-        if (instructionsError) {
-          throw new Error(
-            instructionsError.value.message || "Failed to prepare transaction"
-          );
-        }
-
-        // Process the serialized transaction
-        setStatus({
-          type: "info",
-          message: "Please sign the transaction in your wallet...",
-        });
-
-        // Deserialize the transaction
-        const serializedTx = instructionsResponse.serializedTransaction;
-        const deserializedTxAsU8 = base64.serialize(serializedTx);
-        const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
-
-        // Sign the transaction
-        const signedTx = await umi.identity.signTransaction(deserializedTx);
-
-        // Send the transaction
-        setStatus({
-          type: "info",
-          message: "Sending transaction to the blockchain...",
-        });
-        const signature = await umi.rpc.sendTransaction(signedTx);
-        const signatureString = base64.deserialize(signature)[0];
-        setTxSignature(signatureString);
-
-        // Now we need to confirm the transaction
-        setStatus({ type: "info", message: "Confirming transaction..." });
-        const confirmation = await umi.rpc.confirmTransaction(signature, {
-          strategy: {
-            type: "blockhash",
-            ...(await umi.rpc.getLatestBlockhash()),
-          },
-        });
-
-        if (confirmation.value.err) {
-          throw new Error(
-            `Transaction confirmed but failed: ${confirmation.value.err}`
-          );
-        }
-
-        setStatus({
-          type: "success",
-          message: "Transaction successful! You've sold tokens.",
-        });
-        return true;
-      } catch (error: any) {
-        console.error("Transaction error:", error);
-        setStatus({
-          type: "error",
-          message: error.message || "Failed to sell token",
-        });
+        // Execute the transaction with both request data and transaction-specific data
+        return await executeTransaction(
+          "instructions.sell",
+          requestData,
+          transactionData
+        );
+      } catch (error) {
+        console.error("Error selling token:", error);
         return false;
-      } finally {
-        setLoading(false);
       }
     },
-    [publicKey, umi]
+    [publicKey, poolInfo, executeTransaction]
   );
 
   return {
-    loading: loading || poolInfoLoading,
-    status: poolInfoStatus.type ? poolInfoStatus : status,
+    loading: txLoading || poolInfoLoading,
+    status: poolInfoStatus.type ? poolInfoStatus : txStatus,
     poolInfo,
     txSignature,
     fetchPoolInfo,

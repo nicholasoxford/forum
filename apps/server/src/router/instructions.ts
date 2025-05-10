@@ -94,7 +94,7 @@ export const instructionsRouter = new Elysia({ prefix: "/instructions" })
 
       const serializedTx = await createSellIX({
         connection,
-        poolAddress: poolInfo.poolAddress,
+        poolAddress: poolInfo.ownerAddress,
         userAddress,
         amount,
         slippageBps,
