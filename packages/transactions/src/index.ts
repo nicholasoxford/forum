@@ -35,24 +35,21 @@ export class ForumTransactions {
     metadata?: Record<string, any>;
     errorMessage?: string;
   }) {
-    const [result] = await this.db
-      .insert(transactions)
-      .values({
-        type: data.type,
-        status: data.status || "pending",
-        transactionSignature: data.transactionSignature,
-        userWalletAddress: data.userWalletAddress,
-        tokenMintAddress: data.tokenMintAddress,
-        poolAddress: data.poolAddress,
-        amountA: data.amountA,
-        amountB: data.amountB,
-        mintA: data.mintA,
-        mintB: data.mintB,
-        feePaid: data.feePaid,
-        metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
-        errorMessage: data.errorMessage,
-      })
-      .returning();
+    const [result] = await this.db.insert(transactions).values({
+      type: data.type,
+      status: data.status || "pending",
+      transactionSignature: data.transactionSignature,
+      userWalletAddress: data.userWalletAddress,
+      tokenMintAddress: data.tokenMintAddress,
+      poolAddress: data.poolAddress,
+      amountA: data.amountA,
+      amountB: data.amountB,
+      mintA: data.mintA,
+      mintB: data.mintB,
+      feePaid: data.feePaid,
+      metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
+      errorMessage: data.errorMessage,
+    });
 
     return result;
   }
@@ -66,6 +63,13 @@ export class ForumTransactions {
     options?: {
       signature?: string;
       errorMessage?: string;
+      tokenMintAddress?: string;
+      poolAddress?: string;
+      mintA?: string;
+      mintB?: string;
+      amountA?: string;
+      amountB?: string;
+      feePaid?: string;
     }
   ) {
     const updateData: Record<string, any> = { status };
@@ -78,15 +82,43 @@ export class ForumTransactions {
       updateData.errorMessage = options.errorMessage;
     }
 
+    // Add transaction-specific fields if provided
+    if (options?.tokenMintAddress) {
+      updateData.tokenMintAddress = options.tokenMintAddress;
+    }
+
+    if (options?.poolAddress) {
+      updateData.poolAddress = options.poolAddress;
+    }
+
+    if (options?.mintA) {
+      updateData.mintA = options.mintA;
+    }
+
+    if (options?.mintB) {
+      updateData.mintB = options.mintB;
+    }
+
+    if (options?.amountA) {
+      updateData.amountA = options.amountA;
+    }
+
+    if (options?.amountB) {
+      updateData.amountB = options.amountB;
+    }
+
+    if (options?.feePaid) {
+      updateData.feePaid = options.feePaid;
+    }
+
     if (status === "confirmed") {
-      updateData.confirmedAt = sql`(unixepoch())`;
+      updateData.confirmedAt = sql`CURRENT_TIMESTAMP`;
     }
 
     const [result] = await this.db
       .update(transactions)
       .set(updateData)
-      .where(sql`id = ${id}`)
-      .returning();
+      .where(sql`id = ${id}`);
 
     return result;
   }

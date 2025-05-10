@@ -140,6 +140,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
           maximumFee: String(token.maximumFee || "0"),
           metadataUri: token.metadataUri || "",
           targetMarketCap: String(token.targetMarketCap || "0"),
+          poolAddress: pool?.poolAddress || "",
         };
       } catch (error: any) {
         console.error("[tokens/:id/pool GET]", error);
@@ -164,6 +165,7 @@ export const tokensRouter = new Elysia({ prefix: "/tokens" })
           maximumFee: t.String(),
           metadataUri: t.String(),
           targetMarketCap: t.String(),
+          poolAddress: t.String(),
         }),
         400: t.Object({
           error: t.String(),

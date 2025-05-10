@@ -52,7 +52,11 @@ export function BuyTokenDialog({
   }, [open, tokenMint, fetchPoolInfo]);
 
   const handleBuyToken = async () => {
-    const success = await buyToken(tokenMint, amount);
+    const success = await buyToken(
+      tokenMint,
+      amount,
+      poolInfo?.poolAddress ?? ""
+    );
     if (success) {
       // Auto-close after successful transaction with a delay
       setTimeout(() => setOpen(false), 3000);

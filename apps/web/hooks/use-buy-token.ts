@@ -24,7 +24,7 @@ export function useBuyToken() {
 
   // Buy token functionality
   const buyToken = useCallback(
-    async (tokenMint: string, amount: string) => {
+    async (tokenMint: string, amount: string, poolAddress: string) => {
       if (!publicKey) {
         return false;
       }
@@ -37,19 +37,44 @@ export function useBuyToken() {
         return false;
       }
 
+      if (!poolAddress) {
+        return false;
+      }
+
       // Check if pool info is available
       if (!poolInfo || !poolInfo.success) {
         return false;
       }
 
       try {
-        // Use our generic transaction hook to execute the transaction
-        return await executeTransaction("instructions.buy", {
+        // API request data for preparing the transaction
+        const requestData = {
           tokenMintAddress: tokenMint,
           userAddress: publicKey.toString(),
           amount: parseFloat(amount),
-        });
+          poolAddress: poolAddress,
+        };
+
+        // Transaction-specific data for database recording
+        // The last part of the path "buy" determines the transaction type
+        const transactionData = {
+          tokenMintAddress: tokenMint,
+          poolAddress: poolAddress,
+          mintA: "11111111111111111111111111111111", // Default to SOL
+          mintB: tokenMint,
+          amount: amount,
+          // We'll leave out the estimated amount for now until we have it from the pool info
+        };
+
+        // Execute the transaction with both request data and transaction-specific data
+        // The path "instructions.buy" tells the system this is a "buy" transaction
+        return await executeTransaction(
+          "instructions.buy",
+          requestData,
+          transactionData
+        );
       } catch (error) {
+        console.error("Error buying token:", error);
         return false;
       }
     },

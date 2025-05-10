@@ -29,5 +29,8 @@
   "engines": {
     "bun": ">=1.2.11"
   },
-  "dependencies": {}
+  "dependencies": {
+    "drizzle-typebox": "^0.3.2",
+    "drizzle-zod": "^0.7.1"
+  }
 }

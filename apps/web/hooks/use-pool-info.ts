@@ -56,7 +56,18 @@ export function usePoolInfo() {
       }
 
       if (data) {
-        setPoolInfo({ success: true, token: data });
+        // Check the structure of the data to extract poolAddress correctly
+
+        // Extract poolAddress based on the actual response structure
+
+        setPoolInfo({
+          success: true,
+          token: data,
+          poolAddress: data.poolAddress,
+          // Store the entire response for debugging
+          pool: data,
+        });
+
         setStatus({ type: null, message: "" });
         return data;
       }

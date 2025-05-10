@@ -5,10 +5,18 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { useUmi } from "@/hooks/use-umi";
 import { server } from "@/utils/elysia";
+import { TransactionType } from "@workspace/transactions";
 
 export interface TransactionStatus {
   type: "success" | "error" | "info" | null;
   message: string;
+}
+
+export interface TransactionResult {
+  status: "pending" | "confirmed" | "failed";
+  signature?: string;
+  transactionId: number;
+  error?: string;
 }
 
 export function useSolanaTransaction<RequestData, ResponseData>() {
@@ -22,9 +30,12 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
   });
   const [txSignature, setTxSignature] = useState<string | null>(null);
   const [txResponse, setTxResponse] = useState<any>(null);
+  const [currentTransactionId, setCurrentTransactionId] = useState<
+    number | null
+  >(null);
 
   const executeTransaction = useCallback(
-    async (path: string, requestData: RequestData) => {
+    async (path: string, requestData: RequestData, transactionData?: any) => {
       if (!publicKey) {
         setStatus({ type: "error", message: "Wallet not connected" });
         return false;
@@ -33,6 +44,8 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
       try {
         setLoading(true);
         setTxSignature(null);
+        setCurrentTransactionId(null);
+
         setStatus({ type: "info", message: "Preparing transaction..." });
 
         // Parse the path to call the correct endpoint
@@ -82,9 +95,39 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
           message: "Sending transaction to the blockchain...",
         });
 
+        // Extract transaction type from the path
+        // Get the last segment of the path which should correspond to the transaction type
+        const pathSegments = path.split(".");
+        // Validate that it's a valid TransactionType
+        const txType = pathSegments[pathSegments.length - 1] as TransactionType;
+
+        // Ensure the type is valid
+        if (!isValidTransactionType(txType)) {
+          throw new Error(`Invalid transaction type: ${txType}`);
+        }
+
+        // Handle special case for buy transaction type
+        const finalTxData = { ...transactionData };
+
+        // For buy transactions, ensure estimatedAmount is set when only amount is provided
+        if (
+          txType === "buy" &&
+          finalTxData &&
+          "amount" in finalTxData &&
+          !("estimatedAmount" in finalTxData)
+        ) {
+          finalTxData.estimatedAmount = finalTxData.amount;
+        }
+
         const { data: confirmationResponse, error: confirmationError } =
           await server.solana.sendAndConfirmWithDatabase.post({
             signature: serializedTxSignedAsU8,
+            type: txType,
+            userWalletAddress: publicKey.toString(),
+            // Use transaction-specific data if provided
+            txData: finalTxData || {},
+            // Use empty object as fallback for metadata to satisfy type constraints
+            metadata: (requestData as any) || {},
           });
 
         if (confirmationError) {
@@ -93,12 +136,28 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
           );
         }
 
-        setStatus({
-          type: "success",
-          message: "Transaction confirmed successfully!",
-        });
-        setTxSignature(confirmationResponse.confirmation);
+        // Set transaction signature and ID
+        setTxSignature(confirmationResponse.signature || null);
         setTxResponse(confirmationResponse);
+        setCurrentTransactionId(confirmationResponse.transactionId);
+
+        // Set final status based on response
+        if (confirmationResponse.status === "confirmed") {
+          setStatus({
+            type: "success",
+            message: "Transaction confirmed successfully!",
+          });
+        } else if (confirmationResponse.status === "failed") {
+          setStatus({
+            type: "error",
+            message: confirmationResponse.error || "Transaction failed",
+          });
+        } else {
+          setStatus({
+            type: "info",
+            message: "Transaction sent, waiting for confirmation...",
+          });
+        }
 
         return confirmationResponse;
       } catch (error: any) {
@@ -115,11 +174,19 @@ export function useSolanaTransaction<RequestData, ResponseData>() {
     [publicKey, umi]
   );
 
+  // Helper function to validate transaction types
+  function isValidTransactionType(type: string): type is TransactionType {
+    return ["buy", "sell", "create_pool", "claim", "distribute_fees"].includes(
+      type
+    );
+  }
+
   return {
     loading,
     status,
     txSignature,
     txResponse,
+    transactionId: currentTransactionId,
     executeTransaction,
     connected,
   };
