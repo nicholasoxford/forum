@@ -78,8 +78,7 @@ export function parseVertigoError(error: any): string {
     const simError = error as { simulationResponse?: { err?: string } };
 
     if (simError.simulationResponse?.err === "AccountNotFound") {
-      errorMessage =
-        "Token account not found. The pool may not exist for this token.";
+      errorMessage = "Token account not found";
     } else if (simError.simulationResponse?.err) {
       errorMessage = `Simulation error: ${simError.simulationResponse.err}`;
     } else {
