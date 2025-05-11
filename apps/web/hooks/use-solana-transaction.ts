@@ -127,7 +127,7 @@ export function useSolanaTransaction<
         }
 
         const { data: confirmationResponse, error: confirmationError } =
-          await server.solana.sendAndConfirmWithDatabase.post({
+          await server.solana.sendAndConfirmWithDatabases.post({
             signature: serializedTxSignedAsU8,
             type: txType,
             userWalletAddress: publicKey.toString(),

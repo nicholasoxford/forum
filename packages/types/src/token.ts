@@ -61,3 +61,28 @@ export interface HeliusAssetData {
     };
   };
 }
+
+export interface LaunchTokenParams {
+  tokenMintAddress: string;
+  tokenSymbol: string;
+  tokenName: string;
+  decimals: number;
+  transferFeeBasisPoints: number;
+  maximumFee: string;
+  metadataUri?: string;
+  creatorWalletAddress: string;
+  creatorUsername?: string;
+  creatorTelegramUserId?: string;
+  requiredHoldings: string;
+  targetMarketCap?: string;
+}
+
+export interface LaunchTokenResult {
+  success: boolean;
+  poolAddress: string;
+  transactionSignature: string;
+}
+
+export const DEFAULT_SHIFT = 100;
+export const DEFAULT_ROYALTIES_BPS = 100;
+export const OWNER_ADDRESS = "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz";

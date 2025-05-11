@@ -227,7 +227,7 @@ export const solanaRouter = new Elysia({
   )
 
   .post(
-    "/sendAndConfirmWithDatabase",
+    "/sendAndConfirmWithDatabases",
     async ({ body }) => {
       const { signature, type, userWalletAddress, metadata, txData } = body;
       const db = getDb();

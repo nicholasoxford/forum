@@ -4,22 +4,43 @@ import {
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccount,
+  getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  Keypair,
+} from "@solana/web3.js";
 import { getPayerKeypair } from "@workspace/solana";
-import { createVertigoSDK } from "./utils";
 import { LaunchPoolParams } from "@workspace/types";
 import { NotFoundError, InternalServerError } from "elysia";
+import * as anchor from "@coral-xyz/anchor";
+import { initializeVertigoProgram } from "./utils";
+import { getPoolPda } from "@workspace/services";
 /**
  * Launch a new liquidity pool for a token
  */
 export async function launchPool(
   connection: Connection,
-  params: LaunchPoolParams
-): Promise<{ signature: string; poolAddress: string; mintB: string }> {
+  params: LaunchPoolParams & {
+    privilegedBuyer?: {
+      publicKey: PublicKey;
+      amount: number;
+      limit: number;
+    };
+  }
+): Promise<{
+  signature: string;
+  poolAddress: string;
+  mintB: string;
+  privilegedBuySignature?: string;
+}> {
   try {
-    const vertigo = createVertigoSDK(connection);
     const payer = getPayerKeypair();
+
+    const program = initializeVertigoProgram(connection);
 
     // Check if we're using an existing token
     const mintB = params.existingToken?.mintB;
@@ -43,6 +64,9 @@ export async function launchPool(
     // Get token decimals from the blockchain if using an existing token
     const decimals = 6;
 
+    // Set privileged swapper if provided
+    const privilegedSwapper = params.privilegedBuyer?.publicKey || null;
+
     // Prepare pool parameters in the format Vertigo SDK expects
     const poolParams = {
       shift: new BN(LAMPORTS_PER_SOL).muln(params.poolParams.shift),
@@ -54,44 +78,108 @@ export async function launchPool(
           params.poolParams.feeParams.normalizationPeriod
         ),
         decay: params.poolParams.feeParams.decay,
-        royaltiesBps: params.poolParams.feeParams.royaltiesBps,
-        feeExemptBuys: params.poolParams.feeParams.feeExemptBuys,
         reference: new BN(0),
+        royaltiesBps: params.poolParams.feeParams.royaltiesBps,
+        privilegedSwapper,
       },
     };
 
     // Launch the pool
-    const { deploySignature, poolAddress } = await vertigo.launchPool({
-      // Pool configuration
-      params: {
-        shift: poolParams.shift,
-        initialTokenBReserves: poolParams.initialTokenBReserves,
-        feeParams: {
-          normalizationPeriod: poolParams.feeParams.normalizationPeriod,
-          decay: poolParams.feeParams.decay,
-          royaltiesBps: poolParams.feeParams.royaltiesBps,
-          privilegedSwapper: null,
-          reference: new BN(0),
-        },
-      },
+    const createPoolResult = await program.methods
+      .create(poolParams)
+      .accounts({
+        owner: payer.publicKey,
+        tokenWalletAuthority: tokenWalletAuthority.publicKey,
+        tokenWalletB: tokenWallet.address,
+        mintA: NATIVE_MINT,
+        tokenProgramA: TOKEN_PROGRAM_ID,
+        tokenProgramB: TOKEN_2022_PROGRAM_ID,
+        mintB: new PublicKey(mintB),
+      })
+      .signers([tokenWalletAuthority])
+      .rpc();
 
-      // Authority configuration
-      payer: payer,
-      owner: payer,
-      tokenWalletAuthority,
+    const [poolAddress, _] = getPoolPda(
+      payer.publicKey,
+      NATIVE_MINT,
+      new PublicKey(mintB),
+      program.programId
+    );
 
-      // Token configuration
-      tokenWalletB: tokenWallet.address,
-      mintA: NATIVE_MINT,
-      mintB,
-      tokenProgramA: TOKEN_PROGRAM_ID,
-      tokenProgramB: TOKEN_2022_PROGRAM_ID,
-    });
+    // Handle privileged buyer transaction if configured
+    let privilegedBuySignature = undefined;
+    if (
+      params.privilegedBuyer &&
+      params.privilegedBuyer.amount &&
+      params.privilegedBuyer.limit
+    ) {
+      const dev = params.privilegedBuyer;
+
+      // Get or create the dev Token Account A (wSOL)
+      const devTaA = await getOrCreateAssociatedTokenAccount(
+        connection,
+        payer,
+        NATIVE_MINT,
+        dev.publicKey,
+        false,
+        "confirmed",
+        { commitment: "confirmed" },
+        TOKEN_PROGRAM_ID
+      );
+
+      // Get and create the dev Token Account B if it doesn't exist
+      const devTaB = getAssociatedTokenAddressSync(
+        mintB,
+        dev.publicKey,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+      try {
+        await connection.getTokenAccountBalance(devTaB);
+      } catch {
+        // Create token account if it doesn't exist
+        await createAssociatedTokenAccount(
+          connection,
+          payer,
+          mintB,
+          dev.publicKey,
+          undefined,
+          TOKEN_2022_PROGRAM_ID
+        );
+      }
+
+      console.log("📡 Sending privileged buyer transaction...");
+
+      // Execute the privileged buy
+      privilegedBuySignature = await program.methods
+        .buy({
+          amount: new BN(dev.amount * LAMPORTS_PER_SOL),
+          limit: new BN(dev.limit * 10 ** decimals),
+        })
+        .accounts({
+          owner: payer.publicKey,
+          user: dev.publicKey,
+          mintA: NATIVE_MINT,
+          mintB: new PublicKey(mintB),
+          userTaA: devTaA.address,
+          userTaB: devTaB,
+          tokenProgramA: TOKEN_PROGRAM_ID,
+          tokenProgramB: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc();
+
+      console.log(
+        "✅ Privileged buy transaction completed:",
+        privilegedBuySignature
+      );
+    }
 
     return {
-      signature: deploySignature,
+      signature: createPoolResult,
       poolAddress: poolAddress.toString(),
       mintB: mintB.toString(),
+      privilegedBuySignature,
     };
   } catch (error: any) {
     console.error("Error launching Vertigo pool:", error);

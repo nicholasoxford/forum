@@ -23,26 +23,9 @@ import {
   fromWeb3JsInstruction,
   fromWeb3JsPublicKey,
 } from "@metaplex-foundation/umi-web3js-adapters";
-import { base58, base64 } from "@metaplex-foundation/umi/serializers";
-import { BorshInstructionCoder } from "@coral-xyz/anchor";
+import { base64 } from "@metaplex-foundation/umi/serializers";
 import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
 import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
-import { BN } from "@coral-xyz/anchor";
-
-// Helper function to create Vertigo SDK instance
-export function createVertigoSDK(connection: Connection): VertigoSDK {
-  const payer = getPayerKeypair();
-  const wallet = new anchor.Wallet(payer);
-  const provider = new anchor.AnchorProvider(connection, wallet, {
-    commitment: "confirmed",
-  });
-  try {
-    return new VertigoSDK(provider);
-  } catch (error) {
-    console.error("Error creating VertigoSDK:", error);
-    throw error;
-  }
-}
 
 /**
  * Initializes the Vertigo AMM program with a dummy wallet
@@ -52,8 +35,8 @@ export function createVertigoSDK(connection: Connection): VertigoSDK {
 export function initializeVertigoProgram(
   connection: Connection
 ): anchor.Program<Amm> {
-  const dummyWallet = Keypair.generate();
-  const wallet = new anchor.Wallet(dummyWallet);
+  const payer = getPayerKeypair();
+  const wallet = new anchor.Wallet(payer);
   const anchorProvider = new anchor.AnchorProvider(
     connection,
     wallet,

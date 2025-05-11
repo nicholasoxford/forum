@@ -117,10 +117,7 @@ async function configureChannel(
   username: string
 ): Promise<void> {
   // Set a public username
-  console.log("about to update username", {
-    channel: inputChannel,
-    username,
-  });
+
   console.log("about to invoke update username");
   await client.invoke(
     new Api.channels.UpdateUsername({
