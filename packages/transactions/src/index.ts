@@ -5,11 +5,12 @@ import { sql, and, eq } from "drizzle-orm";
 
 // Define transaction types for type safety
 export type TransactionType =
-  | "create_pool"
   | "buy"
   | "sell"
+  | "create_pool"
   | "claim"
-  | "distribute_fees";
+  | "distribute_fees"
+  | "create-token-2022";
 
 // Define transaction status for type safety
 export type TransactionStatus = "pending" | "confirmed" | "failed";

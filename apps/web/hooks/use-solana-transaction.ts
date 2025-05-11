@@ -183,9 +183,14 @@ export function useSolanaTransaction<
 
   // Helper function to validate transaction types
   function isValidTransactionType(type: string): type is TransactionType {
-    return ["buy", "sell", "create_pool", "claim", "distribute_fees"].includes(
-      type
-    );
+    return [
+      "buy",
+      "sell",
+      "create_pool",
+      "claim",
+      "distribute_fees",
+      "create-token-2022",
+    ].includes(type);
   }
 
   return {

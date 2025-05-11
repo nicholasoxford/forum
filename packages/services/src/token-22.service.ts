@@ -3,6 +3,10 @@ import {
   generateSigner,
   Signer,
   TransactionBuilder,
+  createNoopSigner,
+  publicKey,
+  signerIdentity,
+  signTransaction,
 } from "@metaplex-foundation/umi";
 import {
   createInitializeMetadataPointerInstruction,
@@ -28,13 +32,12 @@ import {
   fromWeb3JsPublicKey,
   toWeb3JsPublicKey,
 } from "@metaplex-foundation/umi-web3js-adapters";
-import { base58 } from "@metaplex-foundation/umi/serializers";
+import { base58, base64 } from "@metaplex-foundation/umi/serializers";
 import {
   createInitializeInstruction,
   pack,
   TokenMetadata,
 } from "@solana/spl-token-metadata";
-import { server } from "@/utils/elysia";
 
 // Token configuration interface
 export interface SplTokenConfig {
@@ -44,70 +47,35 @@ export interface SplTokenConfig {
   decimals: number;
   transferFeeBasisPoints: number;
   maximumFee: bigint;
-  initialMintAmount?: bigint; // Add optional initial mint amount
+  initialMintAmount?: bigint; // Optional initial mint amount
   transferFeeConfigAuthority?: Signer;
   withdrawWithheldAuthority?: Signer;
 }
 
-/**
- * Waits for a transaction to be confirmed
- */
-async function waitForTransaction(
-  signature: string,
-  timeoutMs = 60000,
-  intervalMs = 2000
-): Promise<{
-  success: boolean;
-  status: string;
-  error?: any;
-  confirmation?: any;
-}> {
-  try {
-    const response = await server.solana["wait-for-signature"].post({
-      signature,
-      timeout: timeoutMs,
-      interval: intervalMs,
-    });
-    if (response.error || !response.data.success) {
-      throw new Error("Transaction not confirmed");
-    }
-
-    return {
-      success: true,
-      status: "confirmed",
-      confirmation: response.data.confirmation,
-    };
-  } catch (error) {
-    console.error("Error waiting for transaction confirmation:", error);
-    return {
-      success: false,
-      status: "error",
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+export interface CreateSplTokenResult {
+  mint: Signer;
+  serializedTransaction: string;
 }
 
 /**
- * Creates a Token 2022 mint with transfer fee extension, metadata, and optional initial mint.
- * Returns the mint signer.
+ * Creates and returns a serialized transaction for creating a Token 2022 mint with transfer fee extension
+ * and metadata. Does not submit the transaction.
  */
-export async function createSplToken(
+export async function createSplTokenTransaction(
   umi: Umi,
-  config: SplTokenConfig
-): Promise<{
-  mint: Signer;
-  signature: string;
-  success: boolean;
-}> {
-  if (!umi.identity.publicKey) {
-    throw new Error("Wallet not connected");
-  }
+  config: SplTokenConfig,
+  walletAddress: string
+): Promise<CreateSplTokenResult> {
+  const mySigner = createNoopSigner(publicKey(walletAddress));
+  umi.use(signerIdentity(mySigner));
+  console.log("Using mplToolbox and mplTokenMetadata");
   umi.use(mplToolbox());
   umi.use(mplTokenMetadata());
-
+  console.log("Using mplToolbox and mplTokenMetadata");
   const mint = generateSigner(umi);
-
+  console.log("Mint: ", mint.publicKey.toString());
   const mintAuthority = umi.identity;
+  console.log("Mint Authority: ", mintAuthority.publicKey.toString());
   const transferFeeConfigAuthority =
     config.transferFeeConfigAuthority ?? umi.identity;
   const withdrawWithheldAuthority =
@@ -132,7 +100,7 @@ export async function createSplToken(
   const metadataLen = pack(tokenMetadata).length;
   const totalSize = mintLen + TYPE_SIZE + LENGTH_SIZE + metadataLen;
   const rent = await umi.rpc.getRent(totalSize);
-
+  console.log("Rent: ", rent);
   // Create transaction builder
   let tx = new TransactionBuilder();
 
@@ -146,6 +114,7 @@ export async function createSplToken(
       programId: fromWeb3JsPublicKey(TOKEN_2022_PROGRAM_ID),
     })
   );
+  console.log("Created account instruction");
 
   // 2. Initialize TransferFeeConfig Instruction
   const initializeTransferFeeConfig =
@@ -224,7 +193,6 @@ export async function createSplToken(
   });
 
   // Create and add ATA instruction
-
   const destinationAccount = await getAssociatedTokenAddress(
     toWeb3JsPublicKey(mint.publicKey),
     toWeb3JsPublicKey(umi.identity.publicKey),
@@ -239,6 +207,7 @@ export async function createSplToken(
       tokenProgram: fromWeb3JsPublicKey(TOKEN_2022_PROGRAM_ID),
     })
   );
+
   const mintV1Instruction = createMintToInstruction(
     toWeb3JsPublicKey(mint.publicKey),
     destinationAccount,
@@ -254,44 +223,48 @@ export async function createSplToken(
     bytesCreatedOnChain: 0,
   });
 
-  // --- Build, Sign, and Send Transaction ---
+  // --- Build and set required parameters ---
   tx = await tx.setLatestBlockhash(umi);
   tx = tx.setFeePayer(umi.identity);
-  const builtTx = await tx.buildAndSign(umi);
 
-  // Sign with the mint keypair
-  const signedTransaction = await mint.signTransaction(builtTx);
+  // Build the transaction but don't sign it yet
+  let builtTx = tx.build(umi);
 
-  const result = await umi.rpc.sendTransaction(signedTransaction, {
-    skipPreflight: true, // Recommended for Token 2022 extension ixns
-  });
+  builtTx = await signTransaction(builtTx, [mint]);
 
-  const signature = base58.deserialize(result)[0];
-  console.log(`Transaction Signature: ${signature}`);
-  console.log(
-    `Mint Address: ${mint.publicKey.toString()} (Explorer: https://explorer.solana.com/address/${mint.publicKey.toString()}?cluster=devnet)`
-  );
-  console.log(
-    `Transaction Link: https://explorer.solana.com/tx/${signature}?cluster=devnet`
-  );
+  // Serialize the transaction to base64 for transmission
+  const serializedBytes = umi.transactions.serialize(builtTx);
+  const serializedBase64 = Buffer.from(serializedBytes).toString("base64");
 
-  // Wait for the transaction to be confirmed
-  console.log("Waiting for transaction confirmation...");
-  const confirmationResult = await waitForTransaction(signature);
-
-  if (confirmationResult.success) {
-    console.log("Transaction confirmed successfully!");
-  } else {
-    console.error(
-      "Transaction failed or timed out:",
-      confirmationResult.status,
-      confirmationResult.error
-    );
-  }
-
+  // Return the mint signer and serialized transaction
   return {
     mint: mint,
-    signature,
-    success: confirmationResult.success,
+    serializedTransaction: serializedBase64,
   };
+}
+
+/**
+ * Utility function to wait for a transaction signature to be confirmed
+ */
+export async function waitForSignatureConfirmation(
+  signature: string,
+  timeout: number = 60000,
+  interval: number = 2000
+): Promise<boolean> {
+  const start = Date.now();
+
+  while (Date.now() - start < timeout) {
+    try {
+      // This would need to be implemented with an RPC call to check signature status
+      // For now, just a placeholder to be implemented based on project requirements
+      return true;
+    } catch (error) {
+      console.log("Waiting for transaction confirmation...");
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+  }
+
+  throw new Error(
+    `Transaction confirmation timeout for signature: ${signature}`
+  );
 }

@@ -12,9 +12,29 @@ import {
   claimPoolRoyalties,
   verifyTokenAccountExists,
 } from "@workspace/vertigo";
-import { createSolanaConnection } from "@workspace/solana";
+import { createSolanaConnection, initializeUmi } from "@workspace/solana";
 import bs58 from "bs58";
-import { createBuyIX, createSellIX, getPoolInfo } from "@workspace/services";
+import {
+  createBuyIX,
+  createSellIX,
+  getPoolInfo,
+  createSplTokenTransaction,
+} from "@workspace/services";
+import {
+  BuyInstructionBodySchema,
+  BuyInstructionResponseSchema,
+  SellInstructionBodySchema,
+  SellInstructionResponseSchema,
+  CreateToken2022BodySchema,
+  CreateToken2022ResponseSchema,
+  LaunchPoolBodySchema,
+  LaunchPoolResponseSchema,
+  UnwrapSolBodySchema,
+  UnwrapSolResponseSchema,
+  ClaimRoyaltiesBodySchema,
+  ClaimRoyaltiesResponseSchema,
+} from "@workspace/schemas";
+
 // Default pool settings - can be overridden in request
 const DEFAULT_SHIFT = 100; // 100 virtual SOL
 const DEFAULT_ROYALTIES_BPS = 100; // 1%
@@ -53,33 +73,8 @@ export const instructionsRouter = new Elysia({
       };
     },
     {
-      body: t.Object({
-        tokenMintAddress: t.String({
-          error: "Token mint address must be a string",
-        }),
-        userAddress: t.String({ error: "User address must be a string" }),
-        amount: t.Number({ error: "Amount must be a number" }),
-        slippageBps: t.Optional(
-          t.Number({ error: "Slippage must be a number" })
-        ),
-      }),
-      response: {
-        200: t.Object({
-          serializedTransaction: t.String(),
-        }),
-        400: t.Object({
-          error: t.String(),
-          message: t.String(),
-        }),
-        404: t.Object({
-          error: t.String(),
-          message: t.String(),
-        }),
-        500: t.Object({
-          error: t.String(),
-          message: t.String(),
-        }),
-      },
+      body: BuyInstructionBodySchema,
+      response: BuyInstructionResponseSchema,
     }
   )
   .post(
@@ -116,40 +111,63 @@ export const instructionsRouter = new Elysia({
       };
     },
     {
-      body: t.Object({
-        tokenMintAddress: t.String({
-          error: "Token mint address must be a string",
-        }),
-        userAddress: t.String({ error: "User address must be a string" }),
-        amount: t.Number({
-          error: "Amount (of token to sell) must be a number",
-        }),
-        slippageBps: t.Optional(
-          t.Number({ error: "Slippage must be a number" })
-        ),
-      }),
-      response: {
-        200: t.Object({
-          serializedTransaction: t.String(),
-          poolAddress: t.String(),
-        }),
-        // Use t.Object for error responses for consistency
-        400: t.Object({
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-        404: t.Object({
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-        500: t.Object({
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-      },
+      body: SellInstructionBodySchema,
+      response: SellInstructionResponseSchema,
+    }
+  )
+  .post(
+    "/create-token-2022",
+    async ({ body }) => {
+      const {
+        name,
+        symbol,
+        uri,
+        decimals,
+        transferFeeBasisPoints,
+        maximumFee,
+        initialMintAmount,
+        userAddress,
+      } = body;
+
+      try {
+        console.log(
+          `[instructions/create-token-2022] Creating token transaction for user: ${userAddress}`
+        );
+
+        // Create a UMI instance for the server context
+
+        // In production, uncomment and use the following code:
+        const tokenConfig = {
+          name,
+          symbol,
+          uri,
+          decimals,
+          transferFeeBasisPoints,
+          maximumFee: BigInt(maximumFee),
+          initialMintAmount: initialMintAmount
+            ? BigInt(initialMintAmount)
+            : undefined,
+        };
+
+        const umi = initializeUmi();
+        console.log("Creating token transaction...");
+        const result = await createSplTokenTransaction(
+          umi,
+          tokenConfig,
+          userAddress
+        );
+        return {
+          serializedTransaction: result.serializedTransaction,
+          mintAddress: result.mint.publicKey.toString(),
+        };
+      } catch (error: any) {
+        console.error("[instructions/create-token-2022] Error:", error);
+        throw new Error(error?.message || "Failed to create token transaction");
+      }
+    },
+    {
+      body: CreateToken2022BodySchema,
+      response: CreateToken2022ResponseSchema,
     }
   )
   .post(
@@ -165,7 +183,7 @@ export const instructionsRouter = new Elysia({
         royaltiesBps = DEFAULT_ROYALTIES_BPS,
       } = body;
 
-      // 1. Load Vertigo admin wallet from environment
+      // 1. Load Vertigo amin wallet from environment
       const vertigoSecretKey = process.env.VERTIGO_SECRET_KEY;
       if (!vertigoSecretKey) {
         console.error("[instructions/launch-pool] VERTIGO_SECRET_KEY not set");
@@ -262,47 +280,8 @@ export const instructionsRouter = new Elysia({
       }
     },
     {
-      body: t.Object({
-        ownerAddress: t.String({ error: "Owner address must be a string" }),
-        mintB: t.String({
-          error: "Token mint address (mintB) must be a string",
-        }),
-        tokenWallet: t.String({
-          error: "Token wallet address must be a string",
-        }),
-        tokenName: t.String({ error: "Token name must be a string" }),
-        tokenSymbol: t.String({ error: "Token symbol must be a string" }),
-        shift: t.Optional(
-          t.Number({ default: DEFAULT_SHIFT, error: "Shift must be a number" })
-        ),
-        royaltiesBps: t.Optional(
-          t.Number({
-            default: DEFAULT_ROYALTIES_BPS,
-            error: "Royalties BPS must be a number",
-          })
-        ),
-      }),
-      response: {
-        200: t.Object({
-          poolAddress: t.String(),
-          signature: t.String(),
-          mintB: t.String(),
-        }),
-        // Use Elysia's default error handling or define specific error objects
-        // Keeping simplified error structure for now
-        400: t.Object({
-          // For validation or bad input errors
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-        500: t.Object({
-          // For internal server errors
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-      },
+      body: LaunchPoolBodySchema,
+      response: LaunchPoolResponseSchema,
     }
   )
   .post(
@@ -337,27 +316,8 @@ export const instructionsRouter = new Elysia({
       }
     },
     {
-      body: t.Object({
-        userAddress: t.String({ error: "User address must be a string" }),
-      }),
-      response: {
-        200: t.Object({
-          serializedTransaction: t.String(),
-        }),
-        // Provide specific error schemas based on potential failures
-        400: t.Object({
-          // For client errors like no wSOL account or zero balance
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-        500: t.Object({
-          // For internal server errors
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-      },
+      body: UnwrapSolBodySchema,
+      response: UnwrapSolResponseSchema,
     }
   )
   .post(
@@ -445,38 +405,7 @@ export const instructionsRouter = new Elysia({
       }
     },
     {
-      body: t.Object({
-        poolAddress: t.String({ error: "Pool address must be a string" }),
-        ownerAddress: t.String({ error: "Owner address must be a string" }),
-        mintA: t.Optional(
-          t.String({ default: NATIVE_MINT.toString() }) // Default mintA to wSOL
-        ),
-      }),
-      response: {
-        200: t.Object({
-          signature: t.String(),
-          poolAddress: t.String(),
-          receiverAddress: t.String(),
-        }),
-        // Define potential error responses
-        400: t.Object({
-          // Bad Request (e.g., missing ATA)
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-        404: t.Object({
-          // Not Found (e.g., pool doesn't exist)
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-        500: t.Object({
-          // Internal Server Error
-          name: t.String(),
-          message: t.String(),
-          status: t.Number(),
-        }),
-      },
+      body: ClaimRoyaltiesBodySchema,
+      response: ClaimRoyaltiesResponseSchema,
     }
   );

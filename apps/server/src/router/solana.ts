@@ -3,33 +3,33 @@ import {
   initializeUmi,
   waitForSignatureConfirmation,
 } from "@workspace/solana";
-import { Elysia, env, t } from "elysia";
+import { Elysia, t } from "elysia";
 import { base58, base64 } from "@metaplex-foundation/umi/serializers";
 import { HELIUS_API_KEY } from "@workspace/types";
 import { ForumTransactions, TransactionType } from "@workspace/transactions";
 import { getDb } from "@workspace/db";
-import { updateTransactionWithTypeSpecificData } from "@workspace/services/src/transaction.service";
+import {
+  updateTransactionWithTypeSpecificData,
+  handleTransactionConfirmation,
+} from "@workspace/services/src/transaction.service";
 import { parseBuyTransaction } from "@workspace/services/src/buy.service";
 import {
   sendAndConfirmSchema,
   sendAndConfirmResponseSchema,
 } from "@workspace/transactions/src/schema-typebox";
-import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
-import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import {
-  BN,
-  BorshCoder,
-  BorshInstructionCoder,
-  EventParser,
-} from "@coral-xyz/anchor";
-import * as anchor from "@coral-xyz/anchor";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { getPoolInfo } from "@workspace/services";
 import {
   initializeVertigoProgram,
   parseVertigoError,
 } from "@workspace/vertigo";
+import {
+  createNoopSigner,
+  publicKey,
+  signerIdentity,
+} from "@metaplex-foundation/umi";
 // Elysia now uses TypeBox schemas directly from our schema-typebox file
 
 function stringifyBigInts(obj: any): any {
@@ -255,13 +255,11 @@ export const solanaRouter = new Elysia({
         }
 
         const umi = initializeUmi();
+        const mySigner = createNoopSigner(publicKey(userWalletAddress));
+        umi.use(signerIdentity(mySigner));
         const deserializedTxAsU8 = base64.serialize(signature);
         const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
-
-        // Send transaction to blockchain
-        const response = await umi.rpc.sendTransaction(deserializedTx, {
-          skipPreflight: true,
-        });
+        const response = await umi.rpc.sendTransaction(deserializedTx);
 
         const signatureString = base58.deserialize(response)[0];
 
@@ -289,6 +287,36 @@ export const solanaRouter = new Elysia({
             transactionId,
             "confirmed"
           );
+
+          // Handle post-confirmation actions for specific transaction types
+          try {
+            // This will process actions like token launch after transaction confirmation
+            const additionalData = await handleTransactionConfirmation(
+              type as TransactionType,
+              transactionId,
+              signatureString
+            );
+
+            // If there's additional data from the confirmation handler, include it in the response
+            if (additionalData) {
+              return stringifyBigInts({
+                success: true,
+                status,
+                transactionId,
+                signature: signatureString,
+                error,
+                confirmation,
+                ...additionalData, // Include additional data like poolAddress
+              });
+            }
+          } catch (postConfirmError) {
+            console.error(
+              "Error in post-confirmation handling:",
+              postConfirmError
+            );
+            // We don't want to fail the whole transaction if post-confirmation fails
+            // Just log it and continue with the regular response
+          }
         } else {
           status = "failed";
           error = confirmation.error || "Transaction failed";

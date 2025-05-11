@@ -72,6 +72,22 @@ export const distributionTransactionDataSchema = t.Object(
   { additionalProperties: true }
 );
 
+export const createToken2022TransactionDataSchema = t.Object(
+  {
+    tokenMintAddress: t.Optional(mintAddressType),
+    tokenName: t.Optional(t.String()),
+    tokenSymbol: t.Optional(t.String()),
+    metadataUri: t.Optional(t.String()),
+    decimals: t.Optional(t.Number()),
+    transferFeeBasisPoints: t.Optional(t.Number()),
+    maximumFee: t.Optional(t.String()),
+    creatorWalletAddress: t.Optional(t.String()),
+    requiredHoldings: t.Optional(t.String()),
+    targetMarketCap: t.Optional(t.String()),
+  },
+  { additionalProperties: true }
+);
+
 // Transaction type enum
 export const transactionTypeEnum = t.Enum({
   buy: "buy",
@@ -79,6 +95,7 @@ export const transactionTypeEnum = t.Enum({
   create_pool: "create_pool",
   claim: "claim",
   distribute_fees: "distribute_fees",
+  "create-token-2022": "create-token-2022",
 });
 
 // Transaction data schema with discriminated union for different types
@@ -102,6 +119,10 @@ export const transactionDataSchema = t.Union([
   t.Object({
     type: t.Literal("distribute_fees"),
     data: distributionTransactionDataSchema,
+  }),
+  t.Object({
+    type: t.Literal("create-token-2022"),
+    data: createToken2022TransactionDataSchema,
   }),
 ]);
 

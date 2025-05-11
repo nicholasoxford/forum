@@ -4,15 +4,16 @@ import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-ad
 import { mplToolbox } from "@metaplex-foundation/mpl-toolbox";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { Card, CardContent } from "@workspace/ui/components/card";
-import { createSplToken, SplTokenConfig } from "@/utils/create-spl-token";
 import { toast } from "sonner";
 import { useUmi } from "@/hooks/use-umi";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { ChevronRight } from "lucide-react";
+import { useTokenLaunch } from "@/hooks/use-token-launch";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import { TokenBasicInfo } from "./token-basic-info";
 import { TokenEconomics } from "./token-economics";
 import { TokenSuccess } from "./token-success";
 import { server } from "@/utils/elysia";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 
 const DEFAULT_DECIMALS = 6;
 const DEFAULT_FEE_BASIS_POINTS = 100; // 1%
@@ -23,6 +24,13 @@ export const TokenLaunchFlow = () => {
   const wallet = useWallet();
   const umi = useUmi();
   const { uploadImage, isUploading: uploadingImage } = useImageUpload();
+  const {
+    loading: txLoading,
+    status: txStatus,
+    txSignature,
+    launchToken,
+  } = useTokenLaunch();
+
   umi.use(mplToolbox());
   umi.use(mplTokenMetadata());
   umi.use(walletAdapterIdentity(wallet));
@@ -52,14 +60,12 @@ export const TokenLaunchFlow = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [mintAddress, setMintAddress] = useState<string | null>(null);
-  const [txSignature, setTxSignature] = useState<string | null>(null);
   const [telegramChannelIdCreated, setTelegramChannelIdCreated] = useState<
     string | null
   >(null);
   const [telegramUsernameCreated, setTelegramUsernameCreated] = useState<
     string | null
   >(null);
-  const [groupChatCreated, setGroupChatCreated] = useState(false);
 
   // Step navigation
   const goToNextStep = () => {
@@ -163,7 +169,6 @@ export const TokenLaunchFlow = () => {
 
     setIsLoading(true);
     setMintAddress(null);
-    setTxSignature(null);
 
     try {
       // Only use the uploaded image URL, not the preview
@@ -179,59 +184,36 @@ export const TokenLaunchFlow = () => {
         ONE_BILLION * Math.pow(10, decimals)
       ).toString();
 
-      const parsedMaxFee = BigInt(maxFee);
-      const parsedInitialMintAmount = BigInt(fixedInitialMintAmount);
-
-      const tokenConfig: SplTokenConfig = {
+      // Use our new hook to launch the token
+      const result = await launchToken({
         name,
         symbol,
         uri: metadataUri,
         decimals,
         transferFeeBasisPoints: feeBps,
-        maximumFee: parsedMaxFee,
-        initialMintAmount:
-          parsedInitialMintAmount > 0n ? parsedInitialMintAmount : undefined,
-      };
+        maximumFee: maxFee,
+        initialMintAmount: fixedInitialMintAmount,
+        requiredHoldings,
+        targetMarketCap: isCustomMarketCap ? customMarketCap : undefined,
+      });
 
-      const { mint: mintSigner } = await createSplToken(umi, tokenConfig);
-      const mintAddressStr = mintSigner.publicKey.toString();
-      setMintAddress(mintAddressStr);
-
-      try {
-        const { data, error } = await server.tokens["launch-token"].post({
-          tokenMintAddress: mintAddressStr,
-          tokenSymbol: symbol,
-          tokenName: name,
-          decimals,
-          transferFeeBasisPoints: feeBps,
-          maximumFee: maxFee,
-          metadataUri,
-          creatorWalletAddress: wallet.publicKey.toString(),
-          requiredHoldings,
-          targetMarketCap: isCustomMarketCap ? customMarketCap : undefined,
-        });
-
-        // Create group chat automatically
-        if (error) {
-          console.error("Failed to save token to database:", error);
-          throw new Error(
-            error.value?.message || "Failed to save token to database"
-          );
+      if (result.success && result.mintAddress) {
+        setMintAddress(result.mintAddress);
+        // Set telegram data if available
+        if (result.telegramChannelId) {
+          setTelegramChannelIdCreated(result.telegramChannelId);
+        }
+        if (result.telegramUsername) {
+          setTelegramUsernameCreated(result.telegramUsername);
         }
 
-        if (data.telegramChannelId) {
-          setTelegramChannelIdCreated(data.telegramChannelId);
-          setTelegramUsernameCreated(data.telegramUsername || null);
-          setGroupChatCreated(true);
-        }
         setCurrentStep(3); // Success step
 
         toast.success(`${name} token created successfully!`, {
           description: `Your token is now live on the Solana blockchain.`,
         });
-      } catch (dbError) {
-        console.error("Error saving token to database:", dbError);
-        throw new Error("Failed to save token to database");
+      } else {
+        throw new Error(result.error || "Failed to create token");
       }
     } catch (error: any) {
       console.error("Token creation failed:", error);
@@ -252,10 +234,10 @@ export const TokenLaunchFlow = () => {
     requiredHoldings,
     customMarketCap,
     isCustomMarketCap,
-    umi,
     uploadedImageUrl,
     description,
     createMetadata,
+    launchToken,
   ]);
 
   // Render appropriate step content
@@ -280,23 +262,53 @@ export const TokenLaunchFlow = () => {
         );
       case 2:
         return (
-          <TokenEconomics
-            feeBps={feeBps}
-            setFeeBps={setFeeBps}
-            initialMint={initialMint}
-            setInitialMint={setInitialMint}
-            requiredHoldings={requiredHoldings}
-            setRequiredHoldings={setRequiredHoldings}
-            customMarketCap={customMarketCap}
-            setCustomMarketCap={setCustomMarketCap}
-            isCustomMarketCap={isCustomMarketCap}
-            setIsCustomMarketCap={setIsCustomMarketCap}
-            decimals={decimals}
-            symbol={symbol}
-            onBack={goToPrevStep}
-            onSubmit={handleCreateToken}
-            isLoading={isLoading}
-          />
+          <>
+            {txStatus.type && (
+              <Alert
+                className={
+                  txStatus.type === "error"
+                    ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 mb-4"
+                    : txStatus.type === "success"
+                      ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 mb-4"
+                      : "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 mb-4"
+                }
+              >
+                <AlertDescription>{txStatus.message}</AlertDescription>
+
+                {txSignature && (
+                  <div className="mt-2">
+                    <a
+                      href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      View on Solana Explorer{" "}
+                      <ExternalLink className="ml-1 h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </Alert>
+            )}
+
+            <TokenEconomics
+              feeBps={feeBps}
+              setFeeBps={setFeeBps}
+              initialMint={initialMint}
+              setInitialMint={setInitialMint}
+              requiredHoldings={requiredHoldings}
+              setRequiredHoldings={setRequiredHoldings}
+              customMarketCap={customMarketCap}
+              setCustomMarketCap={setCustomMarketCap}
+              isCustomMarketCap={isCustomMarketCap}
+              setIsCustomMarketCap={setIsCustomMarketCap}
+              decimals={decimals}
+              symbol={symbol}
+              onBack={goToPrevStep}
+              onSubmit={handleCreateToken}
+              isLoading={isLoading || txLoading}
+            />
+          </>
         );
       case 3:
         return mintAddress ? (
