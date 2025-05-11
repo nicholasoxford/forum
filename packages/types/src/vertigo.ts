@@ -22,6 +22,11 @@ export interface LaunchPoolParams {
     tokenWallet: PublicKey;
     walletAuthority: Keypair;
   };
+  privilegedBuyer?: {
+    publicKey: PublicKey;
+    amount: number;
+    limit: number;
+  };
 }
 
 export interface BuyTokensParams {
@@ -49,4 +54,23 @@ export interface ClaimRoyaltiesParams {
   mintA: string;
   receiverTaA: string;
   ownerAddress: string;
+}
+
+export interface LaunchTokenParams {
+  tokenMintAddress: string;
+  tokenSymbol: string;
+  tokenName: string;
+  decimals: number;
+  transferFeeBasisPoints: number;
+  maximumFee: string;
+  metadataUri?: string;
+  targetMarketCap?: string;
+  creatorWalletAddress: string;
+  creatorUsername?: string;
+  creatorTelegramUserId?: string;
+  requiredHoldings?: string;
+  // Privileged buyer fields
+  privilegedBuyerAddress?: string;
+  privilegedBuyerAmount?: string;
+  privilegedBuyerLimit?: string;
 }

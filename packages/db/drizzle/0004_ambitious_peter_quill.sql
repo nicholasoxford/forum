@@ -1,0 +1,1 @@
+ALTER TABLE `pools` ADD `privileged_buyer_signature` varchar(255);

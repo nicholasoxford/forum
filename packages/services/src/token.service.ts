@@ -95,7 +95,13 @@ async function createTelegramChannelForToken(
 async function createPool(
   params: Pick<
     LaunchTokenParams,
-    "tokenName" | "tokenSymbol" | "decimals" | "tokenMintAddress"
+    | "tokenName"
+    | "tokenSymbol"
+    | "decimals"
+    | "tokenMintAddress"
+    | "privilegedBuyerAddress"
+    | "privilegedBuyerAmount"
+    | "privilegedBuyerLimit"
   >
 ) {
   const secretKeyEnv = process.env.VERTIGO_SECRET_KEY;
@@ -105,6 +111,20 @@ async function createPool(
 
   const walletKeypair = Keypair.fromSecretKey(base58.serialize(secretKeyEnv));
   const connection = await createSolanaConnection();
+
+  // Prepare the privileged buyer info if provided
+  let privilegedBuyer = undefined;
+  if (
+    params.privilegedBuyerAddress &&
+    params.privilegedBuyerAmount &&
+    params.privilegedBuyerLimit
+  ) {
+    privilegedBuyer = {
+      publicKey: new PublicKey(params.privilegedBuyerAddress),
+      amount: Number(params.privilegedBuyerAmount),
+      limit: Number(params.privilegedBuyerLimit),
+    };
+  }
 
   const result = await launchPool(connection, {
     tokenName: params.tokenName,
@@ -126,6 +146,7 @@ async function createPool(
       tokenWallet: new PublicKey(OWNER_ADDRESS),
       walletAuthority: walletKeypair,
     },
+    privilegedBuyer,
   });
 
   return { result, walletKeypair };
@@ -136,6 +157,7 @@ async function savePoolInfo(params: {
   tokenMintAddress: string;
   ownerAddress: string;
   transactionSignature: string;
+  privilegedBuyerSignature?: string;
 }) {
   const db = getDb();
   await db.insert(pools).values({
@@ -148,6 +170,7 @@ async function savePoolInfo(params: {
     initialTokenReserves: "1000000",
     royaltiesBps: DEFAULT_ROYALTIES_BPS,
     transactionSignature: params.transactionSignature,
+    privilegedBuyerSignature: params.privilegedBuyerSignature || null,
   });
 }
 
@@ -169,12 +192,14 @@ export async function launchToken(
     tokenMintAddress: params.tokenMintAddress,
     ownerAddress: walletKeypair.publicKey.toString(),
     transactionSignature: result.signature,
+    privilegedBuyerSignature: result.privilegedBuySignature,
   });
   console.log("POOL CREATED");
   return {
     success: true,
     poolAddress: result.poolAddress,
     transactionSignature: result.signature,
+    privilegedBuyerSignature: result.privilegedBuySignature,
   };
 }
 export function getPoolPda(

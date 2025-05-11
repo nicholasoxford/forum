@@ -81,6 +81,7 @@ export interface LaunchTokenResult {
   success: boolean;
   poolAddress: string;
   transactionSignature: string;
+  privilegedBuyerSignature?: string;
 }
 
 export const DEFAULT_SHIFT = 100;

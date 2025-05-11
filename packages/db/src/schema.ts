@@ -75,6 +75,9 @@ export const pools = mysqlTable(
     }).notNull(),
     royaltiesBps: int("royalties_bps"), // Royalty basis points
     transactionSignature: varchar("transaction_signature", { length: 255 }), // Creation transaction
+    privilegedBuyerSignature: varchar("privileged_buyer_signature", {
+      length: 255,
+    }), // Privileged buyer transaction
     createdAt: timestamp("created_at")
       .default(sql`CURRENT_TIMESTAMP`)
       .notNull(),
