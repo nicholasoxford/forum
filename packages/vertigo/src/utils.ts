@@ -7,7 +7,12 @@ import {
   createCloseAccountInstruction,
   getAssociatedTokenAddress,
 } from "@solana/spl-token";
-import { Connection, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  TransactionInstruction,
+  Keypair,
+} from "@solana/web3.js";
 import {
   createNoopSigner,
   signerIdentity,
@@ -18,7 +23,12 @@ import {
   fromWeb3JsInstruction,
   fromWeb3JsPublicKey,
 } from "@metaplex-foundation/umi-web3js-adapters";
-import { base64 } from "@metaplex-foundation/umi/serializers";
+import { base58, base64 } from "@metaplex-foundation/umi/serializers";
+import { BorshInstructionCoder } from "@coral-xyz/anchor";
+import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
+import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
+import { BN } from "@coral-xyz/anchor";
+
 // Helper function to create Vertigo SDK instance
 export function createVertigoSDK(connection: Connection): VertigoSDK {
   const payer = getPayerKeypair();
@@ -32,6 +42,59 @@ export function createVertigoSDK(connection: Connection): VertigoSDK {
     console.error("Error creating VertigoSDK:", error);
     throw error;
   }
+}
+
+/**
+ * Initializes the Vertigo AMM program with a dummy wallet
+ * @param connection Solana connection
+ * @returns Initialized Anchor program instance
+ */
+export function initializeVertigoProgram(
+  connection: Connection
+): anchor.Program<Amm> {
+  const dummyWallet = Keypair.generate();
+  const wallet = new anchor.Wallet(dummyWallet);
+  const anchorProvider = new anchor.AnchorProvider(
+    connection,
+    wallet,
+    anchor.AnchorProvider.defaultOptions()
+  );
+  return new anchor.Program<Amm>(ammIdl as Amm, anchorProvider);
+}
+
+/**
+ * Parses Vertigo transaction errors into user-friendly messages
+ * @param error The error to parse
+ * @returns A user-friendly error message
+ */
+export function parseVertigoError(error: any): string {
+  console.error("ERROR QUOTING BUY", error);
+
+  let errorMessage = "Unknown error occurred";
+
+  // Specific handling for Anchor's SimulateError
+  if (error && error.constructor?.name === "SimulateError") {
+    console.log("Handling SimulateError specifically");
+    const simError = error as { simulationResponse?: { err?: string } };
+
+    if (simError.simulationResponse?.err === "AccountNotFound") {
+      errorMessage =
+        "Token account not found. The pool may not exist for this token.";
+    } else if (simError.simulationResponse?.err) {
+      errorMessage = `Simulation error: ${simError.simulationResponse.err}`;
+    } else {
+      // If we couldn't extract a specific error, use a general message
+      errorMessage =
+        "Failed to simulate transaction on Solana. The token pool might not exist.";
+    }
+  } else if (error instanceof Error) {
+    errorMessage = error.message || "An error occurred";
+  } else {
+    errorMessage = String(error || "Unknown error");
+  }
+
+  console.log("Returning error:", errorMessage);
+  return errorMessage;
 }
 
 /**

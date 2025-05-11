@@ -1,4 +1,8 @@
-import { initializeUmi, waitForSignatureConfirmation } from "@workspace/solana";
+import {
+  createSolanaConnection,
+  initializeUmi,
+  waitForSignatureConfirmation,
+} from "@workspace/solana";
 import { Elysia, env, t } from "elysia";
 import { base58, base64 } from "@metaplex-foundation/umi/serializers";
 import { HELIUS_API_KEY } from "@workspace/types";
@@ -12,12 +16,20 @@ import {
 } from "@workspace/transactions/src/schema-typebox";
 import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
 import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
-import { PublicKey } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
+  BN,
   BorshCoder,
   BorshInstructionCoder,
   EventParser,
 } from "@coral-xyz/anchor";
+import * as anchor from "@coral-xyz/anchor";
+import { NATIVE_MINT } from "@solana/spl-token";
+import { getPoolInfo } from "@workspace/services";
+import {
+  initializeVertigoProgram,
+  parseVertigoError,
+} from "@workspace/vertigo";
 // Elysia now uses TypeBox schemas directly from our schema-typebox file
 
 function stringifyBigInts(obj: any): any {
@@ -140,6 +152,75 @@ export const solanaRouter = new Elysia({
         200: t.Object({
           success: t.Boolean(),
           transaction: t.Any(),
+        }),
+      },
+    }
+  )
+  .post(
+    "/quoteBuy",
+    async ({ body }) => {
+      const { amount, tokenMintAddress, walletAddress } = body;
+      const db = getDb();
+      const connection = await createSolanaConnection();
+      const program = initializeVertigoProgram(connection);
+
+      const accountLamports = new BN(amount * LAMPORTS_PER_SOL);
+      console.log("ABOUT TO QUOTE BUY");
+      const poolInfo = await getPoolInfo({
+        tokenMintAddress,
+        db,
+        connection,
+      });
+      try {
+        const quote = await program.methods
+          .quoteBuy({
+            amount: accountLamports,
+            limit: new BN(0),
+          })
+          .accounts({
+            owner: new PublicKey(poolInfo.poolAddress),
+            user: new PublicKey(walletAddress),
+            mintA: NATIVE_MINT,
+            mintB: new PublicKey(tokenMintAddress),
+          })
+          .view();
+
+        return {
+          success: true,
+          quote,
+          poolInfo,
+        };
+      } catch (e) {
+        console.error("ERROR QUOTING BUY", e);
+
+        let errorMessage = parseVertigoError(e);
+
+        console.log("Returning error:", errorMessage);
+        console.log("Pool info:", poolInfo);
+
+        return {
+          success: false,
+          error: errorMessage,
+          poolInfo,
+        };
+      }
+    },
+    {
+      body: t.Object({
+        amount: t.Number({ default: 0.01 }),
+        tokenMintAddress: t.String({
+          default: "BYr2fwVBFYUSLWokTixJXgihcSckKoioudGY8JeGkTxL",
+        }),
+        walletAddress: t.String({
+          default: "8jTiTDW9ZbMHvAD9SZWvhPfRx5gUgK7HACMdgbFp2tUz",
+        }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          quote: t.Optional(t.Any()),
+          error: t.Optional(t.String()),
+          poolInfo: t.Any(),
         }),
       },
     }

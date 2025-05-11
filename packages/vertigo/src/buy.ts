@@ -282,6 +282,17 @@ export async function buyTokens(
       anchor.AnchorProvider.defaultOptions()
     );
     const program = new anchor.Program<Amm>(ammIdl as Amm, provider);
+    const quote = await program.methods
+      .quoteBuy(amountLamports)
+      .accounts({
+        owner,
+        user: userPublicKey,
+        mintA,
+        mintB,
+      })
+      .simulate();
+
+    console.log("Quote:", quote);
 
     // Create buy instruction
     const buyParams = { amount: amountLamports, limit: new BN(0) };
