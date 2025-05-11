@@ -19,7 +19,12 @@ import { createBuyIX, createSellIX, getPoolInfo } from "@workspace/services";
 const DEFAULT_SHIFT = 100; // 100 virtual SOL
 const DEFAULT_ROYALTIES_BPS = 100; // 1%
 
-export const instructionsRouter = new Elysia({ prefix: "/instructions" })
+export const instructionsRouter = new Elysia({
+  prefix: "/instructions",
+  detail: {
+    tags: ["Instructions"],
+  },
+})
   .post(
     "/buy",
     async ({

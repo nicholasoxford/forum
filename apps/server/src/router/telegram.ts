@@ -26,7 +26,12 @@ const env: TelegramEnv = {
   TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN || "",
 };
 
-export const telegramRouter = new Elysia({ prefix: "/telegram" })
+export const telegramRouter = new Elysia({
+  prefix: "/telegram",
+  detail: {
+    tags: ["Telegram"],
+  },
+})
   // Handle Telegram webhook
   .post(`/${env.WEBHOOK_SECRET}`, async ({ body }) => {
     const { BOT_TOKEN, PUBLIC_URL } = env;

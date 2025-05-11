@@ -28,7 +28,12 @@ const LaunchTokenBodySchema = t.Object({
   targetMarketCap: t.Optional(t.String()), // Keep as string
 });
 
-export const tokensRouter = new Elysia({ prefix: "/tokens" })
+export const tokensRouter = new Elysia({
+  prefix: "/tokens",
+  detail: {
+    tags: ["Tokens"],
+  },
+})
   .get(
     "/",
     async ({ set }) => {

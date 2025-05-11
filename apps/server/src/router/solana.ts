@@ -5,15 +5,73 @@ import { HELIUS_API_KEY } from "@workspace/types";
 import { ForumTransactions, TransactionType } from "@workspace/transactions";
 import { getDb } from "@workspace/db";
 import { updateTransactionWithTypeSpecificData } from "@workspace/services/src/transaction.service";
+import { parseBuyTransaction } from "@workspace/services/src/buy.service";
 import {
   sendAndConfirmSchema,
   sendAndConfirmResponseSchema,
 } from "@workspace/transactions/src/schema-typebox";
-
+import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
+import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
+import { PublicKey } from "@solana/web3.js";
+import {
+  BorshCoder,
+  BorshInstructionCoder,
+  EventParser,
+} from "@coral-xyz/anchor";
 // Elysia now uses TypeBox schemas directly from our schema-typebox file
 
-export const solanaRouter = new Elysia({ prefix: "/solana" })
+function stringifyBigInts(obj: any): any {
+  if (typeof obj === "bigint") {
+    return obj.toString();
+  } else if (Array.isArray(obj)) {
+    return obj.map(stringifyBigInts);
+  } else if (obj && typeof obj === "object") {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, stringifyBigInts(v)])
+    );
+  }
+  return obj;
+}
 
+export const solanaRouter = new Elysia({
+  prefix: "/solana",
+  detail: {
+    tags: ["Solana"],
+  },
+})
+  .get(
+    "/parse-tx/:signature",
+    async ({ params }) => {
+      const umi = initializeUmi();
+      const { signature } = params;
+
+      try {
+        const b58 = base58.serialize(signature);
+        const tx = await umi.rpc.getTransaction(b58, {
+          commitment: "confirmed",
+        });
+
+        if (!tx) {
+          return {
+            success: false,
+            error: "Transaction not found",
+          };
+        }
+
+        return parseBuyTransaction(tx);
+      } catch (error) {
+        console.error("Error parsing transaction:", error);
+        return {
+          success: false,
+          error: "Failed to parse transaction",
+          details: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    {
+      params: t.Object({ signature: t.String() }),
+    }
+  )
   .post(
     "/wait-for-signature",
     async ({ body }) => {
@@ -158,14 +216,14 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
           });
         }
 
-        return {
+        return stringifyBigInts({
           success: true,
           status,
           transactionId,
           signature: signatureString,
           error,
           confirmation,
-        };
+        });
       } catch (error) {
         // Handle errors during transaction processing
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -175,13 +233,13 @@ export const solanaRouter = new Elysia({ prefix: "/solana" })
 
         // Make sure we're returning a signature field, even if it's empty
         // This ensures we match the response schema
-        return {
+        return stringifyBigInts({
           success: false,
           status: "failed",
           error: errorMsg,
           transactionId,
           signature: "", // Empty string for error case
-        };
+        });
       }
     },
     {

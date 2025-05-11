@@ -62,7 +62,11 @@ const getCookieConfig = (ctx: Pick<Context, "request">) => {
 };
 
 // --- Protected Routes Plugin ---
-export const protectedRoutes = new Elysia()
+export const protectedRoutes = new Elysia({
+  detail: {
+    tags: ["Auth"],
+  },
+})
   .use(
     jwt({
       name: "jwt", // Use the same configuration as the main app

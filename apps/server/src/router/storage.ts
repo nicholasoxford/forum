@@ -23,7 +23,12 @@ const env: S3Env = {
   R2_PUBLIC_URL: process.env.R2_PUBLIC_URL || "",
 };
 
-export const storageRouter = new Elysia({ prefix: "/storage" })
+export const storageRouter = new Elysia({
+  prefix: "/storage",
+  detail: {
+    tags: ["Storage"],
+  },
+})
   // Generate presigned URL for direct uploads to R2
   .post(
     "/upload-url",

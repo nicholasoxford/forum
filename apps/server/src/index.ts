@@ -14,7 +14,23 @@ const app = new Elysia()
   .use(cors())
 
   // Apply global Swagger documentation generation
-  .use(swagger())
+  .use(
+    swagger({
+      documentation: {
+        tags: [
+          { name: "Telegram", description: "Telegram related endpoints" },
+          { name: "Solana", description: "Solana related endpoints" },
+          { name: "Tokens", description: "Tokens related endpoints" },
+          {
+            name: "Instructions",
+            description: "Instructions related endpoints",
+          },
+          { name: "Auth", description: "Auth related endpoints" },
+          { name: "Storage", description: "Storage related endpoints" },
+        ],
+      },
+    })
+  )
   .use(telegramRouter)
   .use(storageRouter)
   .use(solanaRouter)
