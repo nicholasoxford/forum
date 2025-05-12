@@ -10,7 +10,7 @@ COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
 COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
 COPY packages/auth/package.json ./packages/auth/package.json
 COPY packages/db/package.json ./packages/db/package.json
-COPY packages/schema/package.json ./packages/schema/package.json
+COPY packages/schemas/package.json ./packages/schemas/package.json
 COPY packages/services/package.json ./packages/services/package.json
 COPY packages/solana/package.json ./packages/solana/package.json
 COPY packages/telegram/package.json ./packages/telegram/package.json
@@ -28,7 +28,7 @@ COPY packages/eslint-config ./packages/eslint-config
 COPY packages/typescript-config ./packages/typescript-config
 COPY packages/auth ./packages/auth
 COPY packages/db ./packages/db
-COPY packages/schema ./packages/schema
+COPY packages/schemas ./packages/schemas
 COPY packages/solana ./packages/solana
 COPY packages/telegram ./packages/telegram
 COPY packages/types ./packages/types
