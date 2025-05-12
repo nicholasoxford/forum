@@ -176,6 +176,9 @@
       "name": "@workspace/services",
       "version": "0.0.0",
       "dependencies": {
+        "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+        "@metaplex-foundation/mpl-toolbox": "^0.10.0",
+        "@metaplex-foundation/umi-web3js-adapters": "^1.2.0",
         "@paralleldrive/cuid2": "^2.2.2",
         "@workspace/db": "workspace:*",
         "drizzle-orm": "^0.43.1",

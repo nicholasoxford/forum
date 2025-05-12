@@ -32,7 +32,6 @@ import {
   fromWeb3JsPublicKey,
   toWeb3JsPublicKey,
 } from "@metaplex-foundation/umi-web3js-adapters";
-import { base58, base64 } from "@metaplex-foundation/umi/serializers";
 import {
   createInitializeInstruction,
   pack,
