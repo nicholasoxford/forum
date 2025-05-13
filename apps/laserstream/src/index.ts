@@ -1,20 +1,7 @@
 import type { Server, ServerWebSocket } from "bun";
-import {
-  VERTIGO_PROGRAM_ID,
-  GRAPH_PROGRAM_ID,
-  isVertigoTransaction,
-  isGraphTransaction,
-  processVertigoTransaction,
-  parseGraphEvent,
-} from "./parsers/protocol-parser";
+import { VERTIGO_PROGRAM_ID } from "./parsers/protocol-parser";
 import { decodeVertigoInstructionData } from "./parsers/vertigo-parser";
-import {
-  log,
-  logSuccess,
-  logWarning,
-  logError,
-  logEvent,
-} from "./utils/logger";
+import { log, logSuccess, logWarning, logError } from "./utils/logger";
 import { LaserStreamClient } from "./client";
 
 // Load environment variables from .env file
@@ -85,105 +72,8 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
     await client.connect();
     logSuccess("Connected to Helius LaserStream");
 
-    // Subscribe to transactions including GraphU program
-    const graphTxSubscriptionId = await client.subscribeToTransactions(
-      {
-        accountInclude: [GRAPH_PROGRAM_ID],
-        vote: false,
-        failed: false,
-      },
-      {
-        commitment: "confirmed",
-        encoding: "jsonParsed",
-        transactionDetails: "full",
-        showRewards: true,
-        maxSupportedTransactionVersion: 0,
-      }
-    );
-    logSuccess(
-      `Subscribed to GraphU transactions with ID: ${graphTxSubscriptionId}`
-    );
-
     // Subscribe to Vertigo transactions if not muted
     if (!isProgramMuted(VERTIGO_PROGRAM_ID)) {
-      const vertigoTxSubscriptionId = await client.subscribeToTransactions(
-        {
-          accountInclude: [VERTIGO_PROGRAM_ID],
-          vote: false,
-          failed: true,
-        },
-        {
-          commitment: "processed",
-          encoding: "jsonParsed",
-          transactionDetails: "full",
-          showRewards: false,
-          maxSupportedTransactionVersion: 0,
-        }
-      );
-      logSuccess(
-        `Subscribed to Vertigo transactions with ID: ${vertigoTxSubscriptionId}`
-      );
-
-      // Try subscribing directly to a recent transaction to test
-      const recentTxId = await client.subscribeToTransactions(
-        {
-          signature:
-            "56u7PBH8qshpspEdUTG6uVeCC1ZDUpTKPsTBn3yeWjxQMWEqbUDsxvXJzqqfpENcjQGe6n5MHwtdRjLw1HXfsMwF",
-        },
-        {
-          commitment: "processed",
-          encoding: "jsonParsed",
-          transactionDetails: "full",
-          showRewards: false,
-          maxSupportedTransactionVersion: 0,
-        }
-      );
-      logSuccess(`Subscribed to recent transaction with ID: ${recentTxId}`);
-
-      // Add a generic subscription with no program filter to verify we get any transactions
-      const genericSubId = await client.subscribeToTransactions(
-        {
-          vote: false,
-          failed: false,
-        },
-        {
-          commitment: "processed",
-          encoding: "base64", // Use base64 for efficiency
-          transactionDetails: "signatures", // Just get signatures to reduce data volume
-          maxSupportedTransactionVersion: 0,
-        }
-      );
-      logSuccess(`Subscribed to all transactions with ID: ${genericSubId}`);
-
-      // Add account subscription for Vertigo
-      const vertigoAccountSubId = await client.subscribeToAccount(
-        VERTIGO_PROGRAM_ID,
-        {
-          commitment: "processed",
-          encoding: "jsonParsed",
-        }
-      );
-      logSuccess(
-        `Subscribed to Vertigo account with ID: ${vertigoAccountSubId}`
-      );
-
-      // Program subscription is not supported for Vertigo
-      // commented out due to "Method not found" error
-      /*
-      const vertigoProgramSubId = await client.subscribeToProgram(
-        VERTIGO_PROGRAM_ID,
-        {
-          commitment: "processed",
-          encoding: "jsonParsed",
-        }
-      );
-      logSuccess(
-        `Subscribed to Vertigo program with ID: ${vertigoProgramSubId}`
-      );
-      */
-
-      // Try a direct subscription to the Vertigo program ID as an account
-      // This matches the example from Helius docs
       const directVertigoSubscriptionId = await client.subscribeToTransactions(
         {
           accountInclude: ["vrTGoBuy5rYSxAfV3jaRJWHH6nN9WK4NRExGxsk1bCJ"],
@@ -233,8 +123,6 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
       );
 
       // Determine which program is involved
-      const isVertigoTx = isVertigoTransaction(txData);
-      const isGraphTx = isGraphTransaction(txData);
 
       // Check if Vertigo account is in the transaction
       const accountKeys =
@@ -265,110 +153,6 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
             }
           }
         }
-
-        const parsedEvent = parseGraphEvent(txData);
-
-        // Broadcast to all connected clients
-        if (parsedEvent) {
-          server.publish(
-            "transactions",
-            JSON.stringify({
-              type: "GraphTransaction",
-              data: parsedEvent,
-            })
-          );
-        }
-      }
-    });
-
-    // Add program notification handler
-    client.on("programNotification", (notification) => {
-      console.log("programNotification", notification);
-      const programData = notification.params.result;
-      const programId =
-        programData.context?.value?.programId || "Unknown program";
-
-      if (programId === GRAPH_PROGRAM_ID) {
-        logEvent(`📡 GraphU Program Notification Received:`);
-        logEvent(`🆔 Context: ${programData.context?.slot || "Unknown slot"}`);
-
-        // Log the data in a structured way
-        if (programData.value) {
-          if (typeof programData.value === "object") {
-            logEvent(
-              `📊 Program Data: ${JSON.stringify(programData.value, null, 2)}`
-            );
-          } else {
-            logEvent(`📊 Program Data: ${programData.value}`);
-          }
-        }
-
-        // Broadcast to all connected clients
-        server.publish(
-          "transactions",
-          JSON.stringify({
-            type: "GraphProgramNotification",
-            data: programData,
-          })
-        );
-      } else if (
-        programId === VERTIGO_PROGRAM_ID &&
-        !isProgramMuted(VERTIGO_PROGRAM_ID)
-      ) {
-        logEvent(`📡 Vertigo Program Notification Received:`);
-        logEvent(`🆔 Context: ${programData.context?.slot || "Unknown slot"}`);
-
-        // Log the data in a structured way
-        if (programData.value) {
-          if (typeof programData.value === "object") {
-            logEvent(
-              `📊 Program Data: ${JSON.stringify(programData.value, null, 2)}`
-            );
-          } else {
-            logEvent(`📊 Program Data: ${programData.value}`);
-          }
-        }
-
-        // Broadcast to all connected clients
-        server.publish(
-          "transactions",
-          JSON.stringify({
-            type: "VertigoProgramNotification",
-            data: programData,
-          })
-        );
-      }
-    });
-
-    // Add account notification handler
-    client.on("accountNotification", (notification) => {
-      console.log("accountNotification", notification);
-      const accountData = notification.params.result;
-      const accountId = accountData.context?.value?.pubkey || "Unknown account";
-
-      if (accountId === VERTIGO_PROGRAM_ID) {
-        logEvent(`📡 Vertigo Account Notification Received:`);
-        logEvent(`🆔 Context: ${accountData.context?.slot || "Unknown slot"}`);
-
-        // Log the data in a structured way
-        if (accountData.value) {
-          if (typeof accountData.value === "object") {
-            logEvent(
-              `📊 Account Data: ${JSON.stringify(accountData.value, null, 2)}`
-            );
-          } else {
-            logEvent(`📊 Account Data: ${accountData.value}`);
-          }
-        }
-
-        // Broadcast to all connected clients
-        server.publish(
-          "transactions",
-          JSON.stringify({
-            type: "VertigoAccountNotification",
-            data: accountData,
-          })
-        );
       }
     });
   } catch (error) {
@@ -425,31 +209,6 @@ function startWebSocketServer() {
   return server;
 }
 
-// Add example of decoding specific Vertigo instruction data directly
-// For debugging purposes
-function testVertigoDataDecoding() {
-  // Example data from transaction
-  const instructionData = "AJTQ2h9DXrBdFUiUasu5uksxQxsxZQhnw";
-
-  log(
-    `🧪 Testing Vertigo instruction data decode for: ${instructionData}`,
-    "info"
-  );
-
-  try {
-    const decoded = decodeVertigoInstructionData(instructionData);
-    if (decoded) {
-      logSuccess(`Successfully decoded Vertigo instruction:`);
-      console.log(`Instruction Name: ${decoded.name}`);
-      console.log(`Instruction Data:`, decoded.data);
-    } else {
-      logWarning(`Could not decode instruction data`);
-    }
-  } catch (error) {
-    logError(`Error decoding instruction data: ${error}`);
-  }
-}
-
 // Modify the startMonitoring function to run the test
 async function startMonitoring() {
   try {
@@ -474,9 +233,6 @@ async function startMonitoring() {
     if (mutedPrograms.length > 0) {
       log(`Muted programs: ${mutedPrograms.join(", ")}`, "info");
     }
-
-    // Test decode function directly
-    testVertigoDataDecoding();
 
     // Start local WebSocket server for clients to connect to
     const server = startWebSocketServer();
