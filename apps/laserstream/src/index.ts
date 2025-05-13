@@ -1,9 +1,14 @@
 import type { Server, ServerWebSocket } from "bun";
 import { VERTIGO_PROGRAM_ID } from "./parsers/protocol-parser";
-import { decodeVertigoInstructionData } from "./parsers/vertigo-parser";
+import {
+  decodeVertigoInstructionData,
+  extractVertigoAccounts,
+  extractVertigoAccountsWithKeys,
+} from "./parsers/vertigo-parser";
 import { log, logSuccess, logWarning, logError } from "./utils/logger";
 import { LaserStreamClient } from "./client";
-
+import ammIdl from "@vertigo-amm/vertigo-sdk/dist/target/idl/amm.json";
+import { Amm } from "@vertigo-amm/vertigo-sdk/dist/target/types/amm";
 // Load environment variables from .env file
 
 // Parse command line arguments
@@ -140,16 +145,42 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
         // Extract and decode Vertigo instruction data
         const instructions =
           txData.transaction?.transaction?.message?.instructions || [];
+
         for (const ix of instructions) {
           if (ix.programId === VERTIGO_PROGRAM_ID) {
             console.log(
               "Found Vertigo instruction, decoding data...: ",
               ix.data
             );
+            console.dir(ix, { depth: null });
+
+            // Extract accounts for specific instructions
             const decoded = decodeVertigoInstructionData(ix.data);
             if (decoded) {
               console.log(`Decoded Vertigo instruction: ${decoded.name}`);
               console.log(`Instruction data:`, decoded.data);
+
+              // Extract accounts with indices first for debugging
+              const accountIndices = extractVertigoAccounts(ix, decoded.name);
+              if (accountIndices) {
+                console.log(
+                  `Extracted account indices for ${decoded.name}:`,
+                  accountIndices
+                );
+              }
+
+              // Extract accounts with full public keys
+              const accountsWithKeys = extractVertigoAccountsWithKeys(
+                txData,
+                ix,
+                decoded.name
+              );
+              if (accountsWithKeys) {
+                console.log(
+                  `Account pubkeys for ${decoded.name}:`,
+                  accountsWithKeys
+                );
+              }
             }
           }
         }
