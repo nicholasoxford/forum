@@ -1,0 +1,31 @@
+{
+  "name": "laserstream",
+  "version": "1.0.0",
+  "description": "Monitor for Pump protocol transactions on Solana",
+  "main": "src/index.ts",
+  "scripts": {
+    "setup": "cp sample.env .env && echo 'Created .env file from sample. Please update with your Helius API key.'",
+    "dev": "bun --env-file=.env.local run --watch src/index.ts",
+    "start": "NODE_ENV=production bun src/index.ts",
+    "build": "tsc --noEmit",
+    "lint": "eslint . --ext .ts",
+    "clean": "rm -rf node_modules .turbo"
+  },
+  "keywords": [
+    "solana",
+    "websocket",
+    "laserstream",
+    "helius"
+  ],
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/web3.js": "^1.87.6",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "packageManager": "bun@1.2.9"
+}

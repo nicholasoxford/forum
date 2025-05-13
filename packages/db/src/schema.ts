@@ -250,3 +250,28 @@ export const transactions = mysqlTable(
 
 export type InsertTransaction = typeof transactions.$inferInsert;
 export type SelectTransaction = typeof transactions.$inferSelect;
+
+// --- FunKeypairs ---
+// Stores pre-generated keypairs with "fun" addresses to be used for token mints
+export const funKeypairs = mysqlTable(
+  "fun_keypairs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    publicKey: varchar("public_key", { length: 255 }).notNull().unique(),
+    privateKey: varchar("private_key", { length: 1024 }).notNull(), // Store encrypted if possible in production
+    suffix: varchar("suffix", { length: 255 }).notNull(), // What makes this address "fun" (e.g., "fun", "sol", etc.)
+    isUsed: boolean("is_used").default(false).notNull(),
+    usedByTokenMint: varchar("used_by_token_mint", { length: 255 }),
+    createdAt: timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    usedAt: timestamp("used_at"),
+  },
+  (table) => [
+    index("fun_keypairs_suffix_idx").on(table.suffix),
+    index("fun_keypairs_used_idx").on(table.isUsed),
+  ]
+);
+
+export type InsertFunKeypair = typeof funKeypairs.$inferInsert;
+export type SelectFunKeypair = typeof funKeypairs.$inferSelect;

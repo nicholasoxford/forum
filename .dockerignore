@@ -1,0 +1,161 @@
+# flyctl launch added from .gitignore
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+**/node_modules
+**/.pnp
+**/.pnp.js
+
+# Local env files
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# Testing
+**/coverage
+
+# Turbo
+**/.turbo
+
+# Vercel
+**/.vercel
+
+# Build Outputs
+**/.next
+**/out
+**/build
+**/dist
+
+
+# Debug
+**/npm-debug.log*
+
+# Misc
+**/.DS_Store
+**/*.pem
+
+**/.next
+
+# flyctl launch added from apps/grind/.gitignore
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+apps/grind/node_modules
+apps/grind/.pnp
+apps/grind/**/.pnp.js
+
+# testing
+apps/grind/coverage
+
+# next.js
+apps/grind/.next
+apps/grind/out
+
+# production
+apps/grind/build
+
+# misc
+apps/grind/**/.DS_Store
+apps/grind/**/*.pem
+
+# debug
+apps/grind/**/npm-debug.log*
+apps/grind/**/yarn-debug.log*
+apps/grind/**/yarn-error.log*
+
+# local env files
+apps/grind/**/.env.local
+apps/grind/**/.env.development.local
+apps/grind/**/.env.test.local
+apps/grind/**/.env.production.local
+
+# vercel
+apps/grind/**/.vercel
+
+apps/grind/**/**/*.trace
+apps/grind/**/**/*.zip
+apps/grind/**/**/*.tar.gz
+apps/grind/**/**/*.tgz
+apps/grind/**/**/*.log
+apps/grind/**/package-lock.json
+apps/grind/**/**/*.bun
+
+# flyctl launch added from apps/server/.gitignore
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+apps/server/node_modules
+apps/server/.pnp
+apps/server/**/.pnp.js
+
+# testing
+apps/server/coverage
+
+# next.js
+apps/server/.next
+apps/server/out
+
+# production
+apps/server/build
+
+# misc
+apps/server/**/.DS_Store
+apps/server/**/*.pem
+
+# debug
+apps/server/**/npm-debug.log*
+apps/server/**/yarn-debug.log*
+apps/server/**/yarn-error.log*
+
+# local env files
+apps/server/**/.env.local
+apps/server/**/.env.development.local
+apps/server/**/.env.test.local
+apps/server/**/.env.production.local
+
+# vercel
+apps/server/**/.vercel
+
+apps/server/**/**/*.trace
+apps/server/**/**/*.zip
+apps/server/**/**/*.tar.gz
+apps/server/**/**/*.tgz
+apps/server/**/**/*.log
+apps/server/**/package-lock.json
+apps/server/**/**/*.bun
+
+# flyctl launch added from apps/web/.gitignore
+apps/web/**/.vercel
+
+# flyctl launch added from node_modules/@solana-mobile/mobile-wallet-adapter-protocol/.gitignore
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/**/lib
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/**/android/build
+
+# flyctl launch added from node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/.gitignore
+# OSX
+#
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.DS_Store
+
+# Android/IJ
+#
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.classpath
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.cxx
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.gradle
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.idea
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.project
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/.settings
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/local.properties
+node_modules/@solana-mobile/mobile-wallet-adapter-protocol/android/**/android.iml
+
+# flyctl launch added from node_modules/jayson/.gitignore
+node_modules/jayson/node_modules
+node_modules/jayson/**/.*
+!node_modules/jayson/**/.gitignore
+!node_modules/jayson/**/.travis.yml
+!node_modules/jayson/**/.jshintrc
+!node_modules/jayson/**/.npmignore
+node_modules/jayson/coverage
+node_modules/jayson/yarn-error.log
+fly.toml

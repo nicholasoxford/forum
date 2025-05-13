@@ -7,6 +7,8 @@ import {
   publicKey,
   signerIdentity,
   signTransaction,
+  KeypairSigner,
+  createSignerFromKeypair,
 } from "@metaplex-foundation/umi";
 import {
   createInitializeMetadataPointerInstruction,
@@ -31,12 +33,19 @@ import {
   fromWeb3JsInstruction,
   fromWeb3JsPublicKey,
   toWeb3JsPublicKey,
+  fromWeb3JsKeypair,
 } from "@metaplex-foundation/umi-web3js-adapters";
 import {
   createInitializeInstruction,
   pack,
   TokenMetadata,
 } from "@solana/spl-token-metadata";
+import {
+  getAvailableKeypair,
+  markKeypairAsUsed,
+  reconstructKeypair,
+} from "./keypair.service";
+import { Keypair } from "@solana/web3.js";
 
 // Token configuration interface
 export interface SplTokenConfig {
@@ -49,11 +58,14 @@ export interface SplTokenConfig {
   initialMintAmount?: bigint; // Optional initial mint amount
   transferFeeConfigAuthority?: Signer;
   withdrawWithheldAuthority?: Signer;
+  useFunKeypair?: boolean; // Whether to use a "fun" keypair from the database
+  funKeypairSuffix?: string; // The suffix to look for (default is "fun")
 }
 
 export interface CreateSplTokenResult {
   mint: Signer;
   serializedTransaction: string;
+  usedKeypairPublicKey?: string; // If a fun keypair was used, return its public key
 }
 
 /**
@@ -71,7 +83,36 @@ export async function createSplTokenTransaction(
   umi.use(mplToolbox());
   umi.use(mplTokenMetadata());
   console.log("Using mplToolbox and mplTokenMetadata");
-  const mint = generateSigner(umi);
+
+  let mint: Signer;
+  let usedKeypairPublicKey: string | undefined;
+
+  // Check if we should use a fun keypair from the database
+  if (config.useFunKeypair) {
+    const suffix = config.funKeypairSuffix || "fun";
+    const keypairFromDb = await getAvailableKeypair(suffix);
+
+    if (!keypairFromDb) {
+      throw new Error(
+        `No available keypair with suffix '${suffix}' found in the database`
+      );
+    }
+
+    // Convert the database keypair to a Solana Keypair
+    const solanaKeypair = reconstructKeypair(keypairFromDb);
+
+    // Convert the Solana Keypair to an Umi KeypairSigner
+    mint = createSignerFromKeypair(umi, fromWeb3JsKeypair(solanaKeypair));
+    usedKeypairPublicKey = keypairFromDb.publicKey;
+
+    console.log(
+      `Using fun keypair with public key: ${mint.publicKey.toString()}`
+    );
+  } else {
+    // Generate a random keypair for the mint
+    mint = generateSigner(umi);
+  }
+
   console.log("Mint: ", mint.publicKey.toString());
   const mintAuthority = umi.identity;
   console.log("Mint Authority: ", mintAuthority.publicKey.toString());
@@ -235,10 +276,16 @@ export async function createSplTokenTransaction(
   const serializedBytes = umi.transactions.serialize(builtTx);
   const serializedBase64 = Buffer.from(serializedBytes).toString("base64");
 
+  // If we used a fun keypair, mark it as used
+  if (usedKeypairPublicKey) {
+    await markKeypairAsUsed(usedKeypairPublicKey, mint.publicKey.toString());
+  }
+
   // Return the mint signer and serialized transaction
   return {
     mint: mint,
     serializedTransaction: serializedBase64,
+    usedKeypairPublicKey,
   };
 }
 

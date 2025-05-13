@@ -63,55 +63,59 @@ export interface ParsedBuyTransaction {
   };
 }
 
-export async function parseBuyTransaction(
-  tx: any
-): Promise<ParsedBuyTransaction> {
+// Parse instructions from a transaction
+function parseInstructions(tx: any): Array<{ name: string; data: any } | null> {
   const VERTIGO_PROGRAM_ID = new PublicKey(
     "vrTGoBuy5rYSxAfV3jaRJWHH6nN9WK4NRExGxsk1bCJ"
   );
   const coder = new BorshInstructionCoder(ammIdl as Amm);
 
-  // Process decoded AMM instructions to get human-readable params
-  const processedInstructions = tx.message.instructions?.map(
-    (rawInstruction: any) => {
-      const accountKeys = tx.message.accounts.map((pk: any) => pk.toString());
-      const programId = accountKeys[rawInstruction.programIndex];
+  return tx.message.instructions?.map((rawInstruction: any) => {
+    const accountKeys = tx.message.accounts.map((pk: any) => pk.toString());
+    const programId = accountKeys[rawInstruction.programIndex];
 
-      if (programId !== VERTIGO_PROGRAM_ID.toBase58()) {
-        return null;
-      }
-
-      const dataAsBase58 = base58.deserialize(
-        Buffer.from(rawInstruction.data)
-      )[0];
-      const decoded = coder.decode(dataAsBase58, "base58");
-
-      if (!decoded) {
-        return null;
-      }
-
-      let processedData = decoded.data;
-      if (decoded.name === "buy" && (decoded.data as any)?.params) {
-        const params = (decoded.data as any).params;
-        const newParams: { [key: string]: string } = {};
-        for (const [key, value] of Object.entries(params)) {
-          if (value && typeof (value as any).toString === "function") {
-            newParams[key] = (value as any).toString();
-          } else {
-            newParams[key] = String(value);
-          }
-        }
-        processedData = { ...(processedData as object), params: newParams };
-      }
-      return { name: decoded.name, data: processedData };
+    if (programId !== VERTIGO_PROGRAM_ID.toBase58()) {
+      return null;
     }
-  );
+    console.log({ DATA: Buffer.from(rawInstruction.data) });
+    const dataAsBase58 = base58.deserialize(
+      Buffer.from(rawInstruction.data)
+    )[0];
+    console.log({ DATA_AS_BASE58: dataAsBase58 });
+    const decoded = coder.decode(dataAsBase58, "base58");
 
-  // Calculate token balance changes
+    if (!decoded) {
+      return null;
+    }
+
+    let processedData = decoded.data;
+    if (decoded.name === "buy" && (decoded.data as any)?.params) {
+      const params = (decoded.data as any).params;
+      const newParams: { [key: string]: string } = {};
+      for (const [key, value] of Object.entries(params)) {
+        if (value && typeof (value as any).toString === "function") {
+          newParams[key] = (value as any).toString();
+        } else {
+          newParams[key] = String(value);
+        }
+      }
+      processedData = { ...(processedData as object), params: newParams };
+    }
+    return { name: decoded.name, data: processedData };
+  });
+}
+
+// Calculate token balance changes
+function calculateTokenBalanceChanges(tx: any): Array<{
+  account: string;
+  mint: string;
+  change: string;
+  identifier: "SOL" | "SPL";
+}> {
   const preTokenBalances = tx.meta.preTokenBalances || [];
   const postTokenBalances = tx.meta.postTokenBalances || [];
 
-  const tokenBalanceChanges = postTokenBalances.map((post: any) => {
+  return postTokenBalances.map((post: any) => {
     const pre = preTokenBalances.find(
       (p: any) =>
         p.owner?.toString() === post.owner?.toString() &&
@@ -169,8 +173,13 @@ export async function parseBuyTransaction(
       identifier,
     };
   });
+}
 
-  // Calculate fee
+// Calculate transaction fee
+function calculateTransactionFee(tx: any): {
+  amount: string;
+  identifier: "SOL";
+} {
   const feeObject = tx.meta?.fee as { basisPoints?: bigint | number | string };
   let feeUiAmount = "0.000000000";
 
@@ -184,6 +193,19 @@ export async function parseBuyTransaction(
   }
 
   return {
+    amount: feeUiAmount,
+    identifier: "SOL",
+  };
+}
+
+export async function parseBuyTransaction(
+  tx: any
+): Promise<ParsedBuyTransaction> {
+  const processedInstructions = parseInstructions(tx);
+  const tokenBalanceChanges = calculateTokenBalanceChanges(tx);
+  const fee = calculateTransactionFee(tx);
+
+  return {
     success: true,
     status: tx.meta?.err ? "failed" : "success",
     instruction: processedInstructions?.find(
@@ -192,9 +214,6 @@ export async function parseBuyTransaction(
     balanceChanges: tokenBalanceChanges.filter(
       (change: { change: string }) => change.change !== "0"
     ),
-    fee: {
-      amount: feeUiAmount,
-      identifier: "SOL",
-    },
+    fee,
   };
 }

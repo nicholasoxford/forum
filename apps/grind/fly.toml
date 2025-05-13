@@ -1,0 +1,32 @@
+# fly.toml app configuration file generated for keypair-grinder on 2025-05-12T19:37:39-06:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'keypair-grinder'
+primary_region = 'iad'
+
+[build]
+dockerfile = 'Dockerfile'
+
+[env]
+BATCH_SIZE = '10'
+DEFAULT_SUFFIX = 'fun'
+GRINDING_INTERVAL_MS = '60000'
+MYSQL_DATABASE = 'some_db'
+MYSQL_HOST = 'mysql-bold-flower-4970.internal'
+MYSQL_PORT = '3306'
+MYSQL_USER = 'non_root_user'
+PORT = '3001'
+
+[http_service]
+internal_port = 3001
+force_https = true
+auto_stop_machines = 'off'
+auto_start_machines = true
+min_machines_running = 1
+
+[[vm]]
+memory = '2048mb'
+cpu_kind = 'performance'
+cpus = 1
