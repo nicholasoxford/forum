@@ -366,8 +366,7 @@ export async function getTokenBalance(
 
   const tokenAccountAddress = await getAssociatedTokenAddress(
     mintPubkey,
-    walletPubkey,
-    false
+    walletPubkey
   );
 
   try {

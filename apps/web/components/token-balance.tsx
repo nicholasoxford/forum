@@ -38,18 +38,19 @@ export function TokenBalance({ tokenMint }: TokenBalanceProps) {
         setLoading(true);
         setError(null);
 
-        const result = await server.tokens.balance.get({
+        const { data, error } = await server.tokens.balance.get({
           query: {
             wallet: publicKey.toString(),
             mint: tokenMint,
           },
         });
-
+        if (error) {
+          throw new Error(error.value.message || "Failed to load balance");
+        }
         // Type assertion for the response
-        const responseData = result as unknown as TokenBalanceResponse;
 
-        if (responseData.exists) {
-          setBalance(responseData.balance.uiAmountString);
+        if (data.exists) {
+          setBalance(data.balance.uiAmountString);
         } else {
           setBalance("0");
         }
