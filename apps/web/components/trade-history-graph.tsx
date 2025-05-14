@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { server } from "@/utils/elysia";
+import useSWR from "swr";
 import {
   LineChart,
   Line,
@@ -78,72 +79,68 @@ const TimeFrameButton = ({
   </button>
 );
 
+// Fetcher function for SWR
+const fetcher = async (tokenMint: string) => {
+  const response = await server["trade-stats"]({
+    tokenMint,
+  }).get({});
+
+  if (response.error) {
+    throw new Error("Failed to fetch trade history");
+  }
+
+  return response.data;
+};
+
 export function TradeHistoryGraph({
   tokenMint,
   className = "",
 }: TradeHistoryGraphProps) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [allChartData, setAllChartData] = useState<ProcessedDataPoint[]>([]);
   const [displayedChartData, setDisplayedChartData] = useState<
     ProcessedDataPoint[]
   >([]);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1d");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const response = await server["trade-stats"]({
-          tokenMint,
-        }).get({});
-
-        if (response.error) {
-          setError("An error occurred");
-          return;
-        }
-
-        // Process the trade history data for the chart
-        if (response.data && response.data.tradeHistory) {
-          const processedData: ProcessedDataPoint[] = response.data.tradeHistory
-            .filter((tx: TradeHistoryData) => tx.amountA && tx.amountB)
-            .map((tx: TradeHistoryData) => {
-              // Calculate price as SOL amount / token amount
-              const solAmount = parseFloat(tx.amountA || "0");
-              const tokenAmount = parseFloat(tx.amountB || "0");
-              const price = tokenAmount > 0 ? solAmount / tokenAmount : 0;
-
-              const date = new Date(tx.createdAt);
-
-              return {
-                timestamp: date.getTime(),
-                date: date.getTime(),
-                price,
-              };
-            })
-            .sort(
-              (a: ProcessedDataPoint, b: ProcessedDataPoint) =>
-                a.timestamp - b.timestamp
-            );
-
-          setAllChartData(processedData);
-          filterDataByTimeFrame(processedData, timeFrame);
-        } else {
-          setAllChartData([]);
-          setDisplayedChartData([]);
-        }
-      } catch (err) {
-        console.error("Error fetching trade history:", err);
-        setError("Failed to load trade history");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (tokenMint) {
-      fetchData();
+  // Use SWR for data fetching with automatic revalidation
+  const { data, error, isLoading } = useSWR(
+    tokenMint ? tokenMint : null,
+    fetcher,
+    {
+      refreshInterval: 5000, // Refresh every 30 seconds
+      revalidateOnFocus: true,
     }
-  }, [tokenMint]);
+  );
+
+  // Process data when it changes
+  useEffect(() => {
+    if (data && data.tradeHistory) {
+      const processedData: ProcessedDataPoint[] = data.tradeHistory
+        .filter((tx: TradeHistoryData) => tx.amountA && tx.amountB)
+        .map((tx: TradeHistoryData) => {
+          // Calculate price as SOL amount / token amount
+          const solAmount = parseFloat(tx.amountA || "0");
+          const tokenAmount = parseFloat(tx.amountB || "0");
+          const price = tokenAmount > 0 ? solAmount / tokenAmount : 0;
+
+          const date = new Date(tx.createdAt);
+
+          return {
+            timestamp: date.getTime(),
+            date: date.getTime(),
+            price,
+          };
+        })
+        .sort(
+          (a: ProcessedDataPoint, b: ProcessedDataPoint) =>
+            a.timestamp - b.timestamp
+        );
+
+      setAllChartData(processedData);
+    } else {
+      setAllChartData([]);
+    }
+  }, [data]);
 
   useEffect(() => {
     filterDataByTimeFrame(allChartData, timeFrame);
@@ -211,7 +208,7 @@ export function TradeHistoryGraph({
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={`flex justify-center items-center h-48 ${className}`}>
         <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
@@ -224,7 +221,7 @@ export function TradeHistoryGraph({
       <div
         className={`text-center text-red-500 h-48 flex items-center justify-center ${className}`}
       >
-        <p>Error loading trade history: {error}</p>
+        <p>Error loading trade history</p>
       </div>
     );
   }
