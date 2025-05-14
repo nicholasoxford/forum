@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { VertigoSDK } from "@vertigo-amm/vertigo-sdk/";
-import { getPayerKeypair } from "@workspace/solana";
+import { getPayerKeypair, initializeUmi } from "@workspace/solana";
 import {
   TOKEN_PROGRAM_ID,
   NATIVE_MINT,
@@ -127,8 +127,7 @@ export async function createUnwrapSolTransaction(
   userAddress: string
 ): Promise<string> {
   try {
-    const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
-    const umi = createUmi(RPC_URL, "confirmed");
+    const umi = initializeUmi();
 
     const userPublicKey = new PublicKey(userAddress);
 

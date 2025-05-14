@@ -62,7 +62,7 @@ export default function TokensPage() {
             variant="outline"
             onClick={() =>
               window.open(
-                `https://explorer.solana.com/address/${selectedTokenMint}?cluster=devnet`,
+                `https://explorer.solana.com/address/${selectedTokenMint}?cluster=mainnet-beta`,
                 "_blank"
               )
             }

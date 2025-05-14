@@ -23,7 +23,7 @@ import {
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { SellTokensParams } from "@workspace/types";
-import { getPayerKeypair } from "@workspace/solana";
+import { getPayerKeypair, initializeUmi } from "@workspace/solana";
 
 /**
  * Creates instruction to unwrap wSOL to SOL
@@ -67,8 +67,7 @@ export async function sellTokens(
   }
 ): Promise<string> {
   try {
-    const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
-    const umi = createUmi(RPC_URL, "confirmed");
+    const umi = initializeUmi();
 
     const dummyPayer = anchor.web3.Keypair.generate();
     const dummyWallet = new anchor.Wallet(dummyPayer);

@@ -265,7 +265,7 @@ export default function BuyTokenPage() {
               {txSignature && (
                 <div className="mt-2">
                   <a
-                    href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                    href={`https://explorer.solana.com/tx/${txSignature}?cluster=mainnet-beta`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"

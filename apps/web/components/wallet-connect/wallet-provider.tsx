@@ -34,7 +34,7 @@ export const WalletProvider: FC<WalletProviderProps> = memo(({ children }) => {
       ({
         autoConnect: true,
         localStorageKey: "wallet-provider",
-        env: "devnet" as Cluster,
+        env: "mainnet" as Cluster,
         metadata: {
           name: "Token Rewards Platform",
           description:

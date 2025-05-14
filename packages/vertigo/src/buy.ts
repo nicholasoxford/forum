@@ -29,7 +29,7 @@ import {
 } from "@metaplex-foundation/umi-web3js-adapters";
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { BuyTokensParams } from "@workspace/types";
-import { getPayerKeypair } from "@workspace/solana";
+import { getPayerKeypair, initializeUmi } from "@workspace/solana";
 import { optimizeTransaction } from "@workspace/solana/src/utils";
 
 /**
@@ -206,8 +206,7 @@ export async function buyTokens(
   params: Omit<BuyTokensParams, "userTaA" | "userTaB"> & { userAddress: string }
 ): Promise<string> {
   try {
-    const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
-    const umi = createUmi(RPC_URL, "confirmed");
+    const umi = initializeUmi();
 
     // Setup dummy wallet for Anchor program
     const dummyPayer = Keypair.generate();
