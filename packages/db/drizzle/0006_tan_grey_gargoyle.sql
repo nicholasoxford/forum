@@ -1,0 +1,1 @@
+ALTER TABLE `transactions` ADD CONSTRAINT `tx_signature_unique_idx` UNIQUE(`transaction_signature`);

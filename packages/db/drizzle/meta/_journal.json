@@ -43,6 +43,13 @@
       "when": 1747099839104,
       "tag": "0005_common_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1747231848719,
+      "tag": "0006_tan_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }
