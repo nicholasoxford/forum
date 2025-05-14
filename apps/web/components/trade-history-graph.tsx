@@ -9,8 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  ReferenceLine,
+  Area,
 } from "recharts";
 import { Loader2 } from "lucide-react";
+
+type TimeFrame = "1m" | "1h" | "1d" | "1w" | "all";
 
 type TradeHistoryData = {
   id: number;
@@ -24,7 +28,7 @@ type TradeHistoryData = {
 
 type ProcessedDataPoint = {
   timestamp: number;
-  date: string;
+  date: number;
   price: number;
 };
 
@@ -33,13 +37,58 @@ type TradeHistoryGraphProps = {
   className?: string;
 };
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const price = payload[0].value;
+    const date = new Date(label);
+
+    return (
+      <div className="bg-zinc-900 border border-zinc-700 rounded-md p-3 shadow-lg">
+        <p className="text-xs text-zinc-400">
+          {date.toLocaleDateString()} {date.toLocaleTimeString()}
+        </p>
+        <p className="text-violet-300 font-medium text-sm mt-1">
+          {price.toFixed(8)} SOL
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const TimeFrameButton = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+      active
+        ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+        : "bg-zinc-800/50 text-zinc-400 border border-zinc-700/50 hover:bg-zinc-700/30 hover:text-zinc-300"
+    }`}
+  >
+    {label}
+  </button>
+);
+
 export function TradeHistoryGraph({
   tokenMint,
   className = "",
 }: TradeHistoryGraphProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chartData, setChartData] = useState<ProcessedDataPoint[]>([]);
+  const [allChartData, setAllChartData] = useState<ProcessedDataPoint[]>([]);
+  const [displayedChartData, setDisplayedChartData] = useState<
+    ProcessedDataPoint[]
+  >([]);
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("1d");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,8 +117,7 @@ export function TradeHistoryGraph({
 
               return {
                 timestamp: date.getTime(),
-                date:
-                  date.toLocaleDateString() + " " + date.toLocaleTimeString(),
+                date: date.getTime(),
                 price,
               };
             })
@@ -78,9 +126,11 @@ export function TradeHistoryGraph({
                 a.timestamp - b.timestamp
             );
 
-          setChartData(processedData);
+          setAllChartData(processedData);
+          filterDataByTimeFrame(processedData, timeFrame);
         } else {
-          setChartData([]);
+          setAllChartData([]);
+          setDisplayedChartData([]);
         }
       } catch (err) {
         console.error("Error fetching trade history:", err);
@@ -94,6 +144,72 @@ export function TradeHistoryGraph({
       fetchData();
     }
   }, [tokenMint]);
+
+  useEffect(() => {
+    filterDataByTimeFrame(allChartData, timeFrame);
+  }, [timeFrame, allChartData]);
+
+  const filterDataByTimeFrame = (
+    data: ProcessedDataPoint[],
+    frame: TimeFrame
+  ) => {
+    if (!data.length) {
+      setDisplayedChartData([]);
+      return;
+    }
+
+    const now = Date.now();
+    let filtered: ProcessedDataPoint[];
+
+    switch (frame) {
+      case "1m":
+        // Last minute (60 seconds * 1000 milliseconds)
+        filtered = data.filter((d) => now - d.timestamp <= 60 * 1000);
+        break;
+      case "1h":
+        // Last hour (60 minutes * 60 seconds * 1000 milliseconds)
+        filtered = data.filter((d) => now - d.timestamp <= 60 * 60 * 1000);
+        break;
+      case "1d":
+        // Last day (24 hours * 60 minutes * 60 seconds * 1000 milliseconds)
+        filtered = data.filter((d) => now - d.timestamp <= 24 * 60 * 60 * 1000);
+        break;
+      case "1w":
+        // Last week (7 days * 24 hours * 60 minutes * 60 seconds * 1000 milliseconds)
+        filtered = data.filter(
+          (d) => now - d.timestamp <= 7 * 24 * 60 * 60 * 1000
+        );
+        break;
+      case "all":
+      default:
+        filtered = [...data];
+        break;
+    }
+
+    // Ensure we have data to display
+    setDisplayedChartData(filtered.length ? filtered : data);
+  };
+
+  const handleTimeFrameChange = (frame: TimeFrame) => {
+    setTimeFrame(frame);
+  };
+
+  const formatXAxisTick = (timestamp: number) => {
+    const date = new Date(timestamp);
+
+    switch (timeFrame) {
+      case "1m":
+        return `${date.getSeconds()}s`;
+      case "1h":
+        return `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+      case "1d":
+        return `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+      case "1w":
+        return date.toLocaleDateString(undefined, { weekday: "short" });
+      default:
+        return date.toLocaleDateString();
+    }
+  };
 
   if (loading) {
     return (
@@ -113,7 +229,7 @@ export function TradeHistoryGraph({
     );
   }
 
-  if (chartData.length === 0) {
+  if (allChartData.length === 0) {
     return (
       <div
         className={`text-center text-zinc-400 h-48 flex items-center justify-center ${className}`}
@@ -123,43 +239,102 @@ export function TradeHistoryGraph({
     );
   }
 
+  // Calculate min and max for better Y-axis display
+  const prices = displayedChartData.map((d) => d.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const buffer = (max - min) * 0.1; // 10% buffer
+  const yDomain = [min - buffer, max + buffer];
+
+  // Calculate average for reference line
+  const avgPrice =
+    prices.reduce((sum, price) => sum + price, 0) / prices.length;
+
   return (
-    <div className={`w-full h-64 ${className}`}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData}
-          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis
-            dataKey="date"
-            stroke="#888"
-            tickFormatter={(value: string) => {
-              const date = new Date(value);
-              return date.toLocaleDateString();
-            }}
-          />
-          <YAxis stroke="#888" />
-          <Tooltip
-            contentStyle={{ backgroundColor: "#111", border: "1px solid #333" }}
-            labelStyle={{ color: "#fff" }}
-            formatter={(value: any) => [`${value.toFixed(6)} SOL`, "Price"]}
-          />
-          <Line
-            type="monotone"
-            dataKey="price"
-            stroke="#8b5cf6"
-            strokeWidth={2}
-            dot={{ r: 4, strokeWidth: 2, stroke: "#8b5cf6", fill: "black" }}
-            activeDot={{
-              r: 6,
-              stroke: "#8b5cf6",
-              strokeWidth: 2,
-              fill: "black",
-            }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <div className={`w-full ${className}`}>
+      <div className="flex space-x-2 mb-2 justify-end">
+        <TimeFrameButton
+          active={timeFrame === "1m"}
+          label="1M"
+          onClick={() => handleTimeFrameChange("1m")}
+        />
+        <TimeFrameButton
+          active={timeFrame === "1h"}
+          label="1H"
+          onClick={() => handleTimeFrameChange("1h")}
+        />
+        <TimeFrameButton
+          active={timeFrame === "1d"}
+          label="1D"
+          onClick={() => handleTimeFrameChange("1d")}
+        />
+        <TimeFrameButton
+          active={timeFrame === "1w"}
+          label="1W"
+          onClick={() => handleTimeFrameChange("1w")}
+        />
+        <TimeFrameButton
+          active={timeFrame === "all"}
+          label="ALL"
+          onClick={() => handleTimeFrameChange("all")}
+        />
+      </div>
+
+      <div className="w-full h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={displayedChartData}
+            margin={{ top: 10, right: 20, left: 5, bottom: 20 }}
+          >
+            <defs>
+              <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.6} />
+            <XAxis
+              dataKey="date"
+              stroke="#888"
+              tickFormatter={formatXAxisTick}
+              minTickGap={50}
+              tick={{ fontSize: 10 }}
+              domain={["dataMin", "dataMax"]}
+              type="number"
+            />
+            <YAxis
+              stroke="#888"
+              tickFormatter={(value) => value.toFixed(8)}
+              tick={{ fontSize: 10 }}
+              domain={yDomain}
+              tickCount={5}
+              width={80}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <ReferenceLine y={avgPrice} stroke="#666" strokeDasharray="3 3" />
+            <Area
+              type="monotone"
+              dataKey="price"
+              stroke="#9333ea"
+              fillOpacity={1}
+              fill="url(#colorPrice)"
+            />
+            <Line
+              type="monotone"
+              dataKey="price"
+              stroke="#a855f7"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{
+                r: 6,
+                stroke: "#9333ea",
+                strokeWidth: 2,
+                fill: "#1e1b24",
+              }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

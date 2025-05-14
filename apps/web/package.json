@@ -36,6 +36,7 @@
     "@workspace/ui": "workspace:*",
     "@workspace/vertigo": "workspace:*",
     "bs58": "^6.0.0",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.5.0",
     "framer-motion": "^12.7.4",
     "input": "^1.0.1",

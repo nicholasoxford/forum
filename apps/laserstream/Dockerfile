@@ -1,38 +1,54 @@
-FROM node:22-alpine as builder
+FROM oven/bun:1 AS build
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy root files needed for workspace setup
+COPY package.json bun.lock tsconfig.json ./
+
+# Copy all workspace package.json files first for better layer caching
+COPY packages/eslint-config/package.json ./packages/eslint-config/package.json
+COPY packages/typescript-config/package.json ./packages/typescript-config/package.json
+COPY packages/auth/package.json ./packages/auth/package.json
+COPY packages/db/package.json ./packages/db/package.json
+COPY packages/services/package.json ./packages/services/package.json
+COPY packages/solana/package.json ./packages/solana/package.json
+COPY packages/telegram/package.json ./packages/telegram/package.json
+COPY packages/transactions/package.json ./packages/transactions/package.json
+COPY packages/types/package.json ./packages/types/package.json
+COPY packages/vertigo/package.json ./packages/vertigo/package.json
+
+COPY apps/laserstream/package.json ./apps/laserstream/package.json
 
 # Install dependencies
-RUN npm install
+RUN bun install
 
 # Copy source code
-COPY tsconfig.json ./
-COPY src ./src
-COPY .env* ./
-
-# Build the app
-RUN npm run build
-
-# Production image
-FROM node:22-alpine
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm install --omit=dev
-
-# Copy built app from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/.env* ./
+COPY packages/eslint-config ./packages/eslint-config
+COPY packages/typescript-config ./packages/typescript-config
+COPY packages/auth ./packages/auth
+COPY packages/db ./packages/db
+COPY packages/solana ./packages/solana
+COPY packages/telegram ./packages/telegram
+COPY packages/types ./packages/types
+COPY packages/transactions ./packages/transactions
+COPY packages/services ./packages/services
+COPY packages/vertigo ./packages/vertigo
+COPY apps/laserstream ./apps/laserstream
 
 # Set environment variables
 ENV NODE_ENV=production
 
-# Run the app
-CMD ["node", "dist/index.js"] 
+# Use the same Bun image for the final stage to ensure Bun is available
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Copy installed dependencies and source code from the build stage
+COPY --from=build /app /app
+
+ENV NODE_ENV=production
+
+# Command to run the app
+CMD ["bun", "run", "./apps/laserstream/src/index.ts"]
+
+EXPOSE 4040 

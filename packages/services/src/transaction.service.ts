@@ -320,12 +320,13 @@ export async function recordVertigoTransaction(transactionData: {
     };
   };
   type: "buy" | "sell";
+  checkDuplicate?: boolean; // Add optional parameter
 }) {
   const db = getDb();
 
   try {
     // Extract relevant data from the transaction
-    const { signature, buyAccounts, type } = transactionData;
+    const { signature, buyAccounts, type, checkDuplicate } = transactionData;
 
     const {
       pool: poolAddress,
@@ -544,72 +545,72 @@ export async function recordVertigoTransaction(transactionData: {
       }
     }
 
-    // Check if a transaction with this signature already exists
-    const existingTransaction = await db.query.transactions.findFirst({
-      where: eq(transactions.transactionSignature, signature),
-    });
+    // First check if this is a duplicate and we're just checking
+    if (checkDuplicate) {
+      const existingTransaction = await db.query.transactions.findFirst({
+        where: eq(transactions.transactionSignature, signature),
+      });
 
-    if (existingTransaction) {
-      // Transaction exists, update it with the detailed information
-      await db
-        .update(transactions)
-        .set({
-          tokenMintAddress: mintB,
-          poolAddress,
-          amountA,
-          amountB,
-          mintA,
-          mintB,
-          feePaid,
-          metadata,
-          status: "confirmed",
-          confirmedAt: new Date(),
-        })
-        .where(eq(transactions.id, existingTransaction.id));
+      if (existingTransaction) {
+        console.log(`Skipping duplicate transaction: ${signature}`);
+        return {
+          ...existingTransaction,
+          duplicate: true,
+        };
+      }
+    }
 
-      console.log(`Updated existing ${type} transaction: ${signature}`);
-      console.log(
-        `User: ${userWalletAddress}, Amount: ${amountA} ${mintA} -> ${amountB} ${mintB}`
-      );
+    // Prepare transaction data
+    const transactionValues: InsertTransaction = {
+      type,
+      status: "confirmed",
+      transactionSignature: signature,
+      userWalletAddress,
+      tokenMintAddress: mintB,
+      poolAddress,
+      amountA,
+      amountB,
+      mintA,
+      mintB,
+      feePaid,
+      metadata,
+      createdAt: new Date(),
+      confirmedAt: new Date(),
+    };
 
-      return {
-        ...existingTransaction,
-        tokenMintAddress: mintB,
-        poolAddress,
-        amountA,
-        amountB,
-        mintA,
-        mintB,
-        feePaid,
-        metadata,
-        status: "confirmed",
-      };
-    } else {
-      // No existing transaction, create a new one
-      const newTransaction: InsertTransaction = {
-        type,
-        status: "confirmed",
-        transactionSignature: signature,
-        userWalletAddress,
-        tokenMintAddress: mintB,
-        poolAddress,
-        amountA,
-        amountB,
-        mintA,
-        mintB,
-        feePaid,
-        metadata,
-        createdAt: new Date(),
-        confirmedAt: new Date(),
-      };
+    // Use upsert pattern to either insert a new record or update an existing one
+    // This uses ON DUPLICATE KEY UPDATE to handle duplicates at the database level
+    try {
+      const result = await db
+        .insert(transactions)
+        .values(transactionValues)
+        .onDuplicateKeyUpdate({
+          set: {
+            // Only update these fields if the record already exists
+            tokenMintAddress: mintB,
+            poolAddress,
+            amountA,
+            amountB,
+            mintA,
+            mintB,
+            feePaid,
+            metadata,
+            status: "confirmed",
+            confirmedAt: new Date(),
+          },
+        });
 
-      // Insert transaction record
-      const result = await db.insert(transactions).values(newTransaction);
-      console.log("INSERTED TRANSACTION: ", result);
+      // Check if this was an insert or update based on affected rows
+      // Access the appropriate property for affected rows based on the Drizzle ORM implementation
+      const isUpdate =
+        result && "rowsAffected" in result ? result.rowsAffected === 0 : false;
 
-      console.log(
-        `Recorded ${type} transaction for token ${mintB} (${signature})`
-      );
+      if (isUpdate) {
+        console.log(`Updated existing ${type} transaction: ${signature}`);
+      } else {
+        console.log(`Recorded new ${type} transaction: ${signature}`);
+      }
+
       console.log(
         `User: ${userWalletAddress}, Amount: ${
           type === "buy"
@@ -617,7 +618,30 @@ export async function recordVertigoTransaction(transactionData: {
             : `${amountB} ${mintB} -> ${amountA} ${mintA}`
         }`
       );
-      return newTransaction;
+
+      return {
+        ...transactionValues,
+        duplicate: isUpdate,
+      };
+    } catch (error) {
+      console.error(`Error upserting transaction: ${error}`);
+
+      // If there was an error with the upsert, try to fetch the existing record
+      // This could happen if there's a race condition or constraint violation
+      const existingRecord = await db.query.transactions.findFirst({
+        where: eq(transactions.transactionSignature, signature),
+      });
+
+      if (existingRecord) {
+        console.log(`Transaction ${signature} already exists`);
+        return {
+          ...existingRecord,
+          duplicate: true,
+        };
+      }
+
+      // Re-throw the error if we couldn't find an existing record
+      throw error;
     }
   } catch (error) {
     console.error(`Error recording Vertigo transaction:`, error);

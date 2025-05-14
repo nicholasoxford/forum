@@ -129,8 +129,6 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
         `📌 Transaction ${txData.signature} received at slot ${txData.slot}`
       );
 
-      // Determine which program is involved
-
       // Check if Vertigo account is in the transaction
       const accountKeys =
         txData.transaction?.transaction?.message?.accountKeys || [];
@@ -181,15 +179,22 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
                   // Record the transaction in the database using a self-executing async function
                   (async () => {
                     try {
-                      await recordVertigoTransaction({
+                      const result = await recordVertigoTransaction({
                         signature: txData.signature,
                         slot: txData.slot,
                         buyAccounts,
                         type: "buy",
+                        checkDuplicate: true,
                       });
-                      console.log(
-                        `✅ Successfully recorded buy transaction in database: ${txData.signature}`
-                      );
+                      if (result.duplicate) {
+                        console.log(
+                          `⚠️ Skipped duplicate buy transaction: ${txData.signature}`
+                        );
+                      } else {
+                        console.log(
+                          `✅ Successfully recorded buy transaction in database: ${txData.signature}`
+                        );
+                      }
                     } catch (error) {
                       console.error(
                         `❌ Failed to record transaction in database:`,
@@ -254,15 +259,22 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
                       // Record the sell transaction
                       (async () => {
                         try {
-                          await recordVertigoTransaction({
+                          const result = await recordVertigoTransaction({
                             signature: txData.signature,
                             slot: txData.slot,
                             buyAccounts: sellAccounts,
                             type: "sell",
+                            checkDuplicate: true,
                           });
-                          console.log(
-                            `✅ Successfully recorded sell transaction in database: ${txData.signature}`
-                          );
+                          if (result.duplicate) {
+                            console.log(
+                              `⚠️ Skipped duplicate sell transaction: ${txData.signature}`
+                            );
+                          } else {
+                            console.log(
+                              `✅ Successfully recorded sell transaction in database: ${txData.signature}`
+                            );
+                          }
                         } catch (error) {
                           console.error(
                             `❌ Failed to record sell transaction in database:`,

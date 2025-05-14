@@ -20,12 +20,15 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
     "@solana/web3.js": "^1.87.6",
+    "@vertigo-amm/vertigo-sdk": "^0.1.13",
+    "@workspace/services": "workspace:*",
     "ws": "^8.14.2"
   },
   "devDependencies": {
     "bun-types": "latest",
     "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.10"
   },
   "packageManager": "bun@1.2.9"
 }

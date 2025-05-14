@@ -245,6 +245,8 @@ export const transactions = mysqlTable(
       foreignColumns: [pools.poolAddress],
       name: "tx_pool_fk",
     }),
+    // Add a unique index on transaction signature to prevent duplicates
+    uniqueIndex("tx_signature_unique_idx").on(table.transactionSignature),
   ]
 );
 
