@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { server } from "@/utils/elysia";
 import useSWR from "swr";
 import {
@@ -101,21 +101,25 @@ export function TradeHistoryGraph({
     ProcessedDataPoint[]
   >([]);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1d");
+  const [yDomain, setYDomain] = useState<[number, number] | undefined>(
+    undefined
+  );
+  const prevDataRef = useRef<ProcessedDataPoint[]>([]);
 
   // Use SWR for data fetching with automatic revalidation
   const { data, error, isLoading } = useSWR(
     tokenMint ? tokenMint : null,
     fetcher,
     {
-      refreshInterval: 5000, // Refresh every 30 seconds
+      refreshInterval: 5000, // Refresh every 5 seconds
       revalidateOnFocus: true,
     }
   );
 
-  // Process data when it changes
+  // Process data when it changes, merging with existing data instead of replacing
   useEffect(() => {
     if (data && data.tradeHistory) {
-      const processedData: ProcessedDataPoint[] = data.tradeHistory
+      const newProcessedData: ProcessedDataPoint[] = data.tradeHistory
         .filter((tx: TradeHistoryData) => tx.amountA && tx.amountB)
         .map((tx: TradeHistoryData) => {
           // Calculate price as SOL amount / token amount
@@ -130,15 +134,20 @@ export function TradeHistoryGraph({
             date: date.getTime(),
             price,
           };
-        })
-        .sort(
-          (a: ProcessedDataPoint, b: ProcessedDataPoint) =>
-            a.timestamp - b.timestamp
-        );
+        });
 
-      setAllChartData(processedData);
-    } else {
-      setAllChartData([]);
+      // Merge with existing data without duplicates
+      const existingTimestamps = new Set(allChartData.map((d) => d.timestamp));
+      const uniqueNewData = newProcessedData.filter(
+        (d) => !existingTimestamps.has(d.timestamp)
+      );
+
+      const mergedData = [...allChartData, ...uniqueNewData].sort(
+        (a, b) => a.timestamp - b.timestamp
+      );
+
+      setAllChartData(mergedData);
+      prevDataRef.current = mergedData;
     }
   }, [data]);
 
@@ -184,11 +193,33 @@ export function TradeHistoryGraph({
     }
 
     // Ensure we have data to display
-    setDisplayedChartData(filtered.length ? filtered : data);
+    filtered = filtered.length ? filtered : data;
+    setDisplayedChartData(filtered);
+
+    // Calculate domain with some stability - only change if values are significantly different
+    if (filtered.length > 0) {
+      const prices = filtered.map((d) => d.price);
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      const buffer = (max - min) * 0.2; // 20% buffer
+
+      // Only update domain if it's undefined or values are significantly different
+      if (
+        !yDomain ||
+        min < yDomain[0] + buffer ||
+        max > yDomain[1] - buffer ||
+        min > yDomain[0] + buffer ||
+        max < yDomain[1] - buffer
+      ) {
+        setYDomain([min - buffer, max + buffer]);
+      }
+    }
   };
 
   const handleTimeFrameChange = (frame: TimeFrame) => {
     setTimeFrame(frame);
+    // Reset domain when timeframe changes
+    setYDomain(undefined);
   };
 
   const formatXAxisTick = (timestamp: number) => {
@@ -236,14 +267,8 @@ export function TradeHistoryGraph({
     );
   }
 
-  // Calculate min and max for better Y-axis display
-  const prices = displayedChartData.map((d) => d.price);
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const buffer = (max - min) * 0.1; // 10% buffer
-  const yDomain = [min - buffer, max + buffer];
-
   // Calculate average for reference line
+  const prices = displayedChartData.map((d) => d.price);
   const avgPrice =
     prices.reduce((sum, price) => sum + price, 0) / prices.length;
 
@@ -315,6 +340,9 @@ export function TradeHistoryGraph({
               stroke="#9333ea"
               fillOpacity={1}
               fill="url(#colorPrice)"
+              isAnimationActive={true}
+              animationDuration={300}
+              animationEasing="ease-in-out"
             />
             <Line
               type="monotone"
@@ -322,6 +350,9 @@ export function TradeHistoryGraph({
               stroke="#a855f7"
               strokeWidth={2.5}
               dot={false}
+              isAnimationActive={true}
+              animationDuration={300}
+              animationEasing="ease-in-out"
               activeDot={{
                 r: 6,
                 stroke: "#9333ea",
