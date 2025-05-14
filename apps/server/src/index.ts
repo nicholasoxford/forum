@@ -7,6 +7,7 @@ import { tokensRouter } from "./router/tokens";
 import { instructionsRouter } from "./router/instructions";
 import { authRouter, protectedRoutes } from "./router/auth";
 import { storageRouter } from "./router/storage";
+import { tradeStatsRouter } from "./router/trade-stats";
 // Use PORT environment variable or fallback to 3000
 const port = process.env.PORT ? parseInt(process.env.PORT) : 5050;
 
@@ -27,6 +28,7 @@ const app = new Elysia()
           },
           { name: "Auth", description: "Auth related endpoints" },
           { name: "Storage", description: "Storage related endpoints" },
+          { name: "Trade Stats", description: "Trading statistics endpoints" },
         ],
       },
     })
@@ -38,6 +40,7 @@ const app = new Elysia()
   .use(instructionsRouter)
   .use(authRouter)
   .use(protectedRoutes)
+  .use(tradeStatsRouter)
   .get("/", () => "Hello Elysia")
   .listen(port);
 

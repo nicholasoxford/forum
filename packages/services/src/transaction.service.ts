@@ -351,7 +351,15 @@ export async function recordVertigoTransaction(transactionData: {
         buyAccounts.tokenChanges?.mintA?.userInput ||
         buyAccounts.params?.amount ||
         "";
-      amountB = buyAccounts.tokenChanges?.mintB?.userReceived || "";
+      amountB =
+        buyAccounts.tokenChanges?.mintB?.userReceived ||
+        // For buy transactions, if userReceived is not available, try userBalanceChange
+        // Only use positive balance changes for buy amounts
+        (buyAccounts.tokenChanges?.mintB?.userBalanceChange &&
+        !buyAccounts.tokenChanges?.mintB?.userBalanceChange.startsWith("-")
+          ? buyAccounts.tokenChanges?.mintB?.userBalanceChange
+          : "") ||
+        "";
     } else if (type === "sell") {
       // In a sell, user sends mintB (token) and receives mintA (usually SOL)
       amountB =
@@ -443,6 +451,19 @@ export async function recordVertigoTransaction(transactionData: {
                   .transfer_fee_basis_points;
             }
 
+            // First ensure the token creator user exists
+            await db
+              .insert(users)
+              .values({
+                walletAddress: buyAccounts.owner,
+                createdAt: new Date(),
+              })
+              .onDuplicateKeyUpdate({
+                set: {
+                  walletAddress: buyAccounts.owner,
+                },
+              });
+
             await db.insert(tokens).values({
               tokenMintAddress: mintB,
               tokenSymbol: symbol,
@@ -458,6 +479,41 @@ export async function recordVertigoTransaction(transactionData: {
           }
         } catch (error) {
           console.warn(`Could not fetch token info for ${mintB}:`, error);
+
+          // If we can't get token info from Helius, create a minimal token record with default values
+          try {
+            // First ensure the token creator user exists
+            await db
+              .insert(users)
+              .values({
+                walletAddress: buyAccounts.owner,
+                createdAt: new Date(),
+              })
+              .onDuplicateKeyUpdate({
+                set: {
+                  walletAddress: buyAccounts.owner,
+                },
+              });
+
+            // Create a minimal token record
+            await db.insert(tokens).values({
+              tokenMintAddress: mintB,
+              tokenSymbol: mintB.substring(0, 6),
+              tokenName: `Token ${mintB.substring(0, 8)}`,
+              decimals: buyAccounts.tokenChanges?.mintB?.decimals || 6,
+              transferFeeBasisPoints: 0,
+              maximumFee: "0",
+              creatorWalletAddress: buyAccounts.owner,
+              createdAt: new Date(),
+            });
+
+            tokenExists = true;
+            console.log(`Created minimal token record for ${mintB}`);
+          } catch (tokenInsertError) {
+            console.error(
+              `Failed to create minimal token record: ${tokenInsertError}`
+            );
+          }
         }
       }
     } catch (error) {

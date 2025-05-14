@@ -229,7 +229,7 @@ export async function buyTokens(
     const tokenProgramA = mintA.equals(NATIVE_MINT)
       ? TOKEN_PROGRAM_ID
       : TOKEN_PROGRAM_ID;
-    const tokenProgramB = TOKEN_2022_PROGRAM_ID;
+    const tokenProgramB = TOKEN_PROGRAM_ID;
 
     // Get or create token accounts
     console.log(

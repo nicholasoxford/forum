@@ -7,6 +7,7 @@ import { BuyTokenDialog } from "@/components/buy-token-dialog";
 import { SellTokenDialog } from "@/components/sell-token-dialog";
 import { TokenBalance } from "@/components/token-balance";
 import { server } from "@/utils/elysia";
+import { TradeHistoryGraph } from "@/components/trade-history-graph";
 
 export type paramsType = Promise<{ id: string }>;
 export default async function TokenPage({ params }: { params: paramsType }) {
@@ -23,9 +24,9 @@ export default async function TokenPage({ params }: { params: paramsType }) {
     const tokenName = tokenData.content?.metadata?.name || "Unnamed Token";
     const tokenSymbol = tokenData.content?.metadata?.symbol || "";
     const tokenImage =
-      tokenData.content?.files?.[0]?.cdn_uri ||
       tokenData.content?.files?.[0]?.uri ||
       tokenData.content?.links?.image ||
+      tokenData.content?.files?.[0]?.cdn_uri ||
       "";
     const transferFeeBasisPoints =
       tokenData.mint_extensions?.transfer_fee_config?.newer_transfer_fee
@@ -40,12 +41,12 @@ export default async function TokenPage({ params }: { params: paramsType }) {
             <div className="bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg flex flex-col">
               {tokenImage ? (
                 <div className="relative aspect-square rounded-lg overflow-hidden mb-4 border border-violet-500/20 shadow-xl shadow-violet-500/10">
-                  <Image
+                  <img
                     src={tokenImage}
                     alt={tokenName}
-                    fill
-                    className="object-cover"
-                    priority
+                    className="object-cover w-full h-full"
+                    width={100}
+                    height={100}
                   />
                 </div>
               ) : (
@@ -164,6 +165,16 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                   {tokenSymbol && (
                     <span className="text-zinc-400">{tokenSymbol}</span>
                   )}
+                </div>
+              </div>
+
+              {/* Trade History Graph */}
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-3 text-white">
+                  Price History
+                </h2>
+                <div className="bg-black/40 border border-zinc-800/60 rounded-lg p-4">
+                  <TradeHistoryGraph tokenMint={id} />
                 </div>
               </div>
 
