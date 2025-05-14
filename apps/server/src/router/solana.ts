@@ -259,7 +259,9 @@ export const solanaRouter = new Elysia({
         umi.use(signerIdentity(mySigner));
         const deserializedTxAsU8 = base64.serialize(signature);
         const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
-        const response = await umi.rpc.sendTransaction(deserializedTx);
+        const response = await umi.rpc.sendTransaction(deserializedTx, {
+          skipPreflight: true,
+        });
 
         const signatureString = base58.deserialize(response)[0];
 

@@ -11,6 +11,16 @@ import {
 import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { launchToken } from "./token.service";
+import {
+  transactions,
+  pools,
+  tokens,
+  users,
+  InsertTransaction,
+} from "@workspace/db/src/schema";
+import { eq, and } from "drizzle-orm";
+import { getTokenById } from "./token.service";
+import { getPoolByAddress } from "./pool.service";
 
 // Transaction handlers mapping with type safety
 const transactionHandlers: Record<
@@ -253,4 +263,308 @@ export async function handleTransactionConfirmation(
 
   // Return null for transaction types with no post-confirmation actions
   return null;
+}
+
+/**
+ * Records or updates a Vertigo buy or sell transaction in the database
+ *
+ * @param transactionData Data extracted from the Vertigo transaction
+ * @returns The transaction record
+ */
+export async function recordVertigoTransaction(transactionData: {
+  signature: string;
+  slot: number;
+  buyAccounts: {
+    pool: string;
+    user: string;
+    owner: string;
+    mint_a: string;
+    mint_b: string;
+    user_ta_a: string;
+    user_ta_b: string;
+    vault_a: string;
+    vault_b: string;
+    token_program_a: string;
+    token_program_b: string;
+    system_program: string;
+    program: string;
+    params?: {
+      amount: string;
+      limit: string;
+    };
+    tokenChanges?: {
+      mintA?: {
+        userInput?: string;
+        vaultReceived?: string;
+        userBalanceChange?: string;
+        uiUserBalanceChange?: string;
+        decimals: number;
+        uiInput?: string;
+        uiReceived?: string;
+        userReceived?: string;
+        vaultSent?: string;
+        uiSent?: string;
+      };
+      mintB?: {
+        userReceived?: string;
+        vaultSent?: string;
+        userBalanceChange?: string;
+        uiUserBalanceChange?: string;
+        decimals: number;
+        uiReceived?: string;
+        uiSent?: string;
+        userInput?: string;
+        vaultReceived?: string;
+        uiInput?: string;
+      };
+    };
+  };
+  type: "buy" | "sell";
+}) {
+  const db = getDb();
+
+  try {
+    // Extract relevant data from the transaction
+    const { signature, buyAccounts, type } = transactionData;
+
+    const {
+      pool: poolAddress,
+      user: userWalletAddress,
+      mint_a: mintA,
+      mint_b: mintB,
+    } = buyAccounts;
+
+    // Get token amounts based on transaction type
+    let amountA = "";
+    let amountB = "";
+
+    console.log(
+      `Processing ${type} transaction with token changes:`,
+      buyAccounts.tokenChanges
+        ? JSON.stringify(buyAccounts.tokenChanges)
+        : "none"
+    );
+
+    if (type === "buy") {
+      // In a buy, user sends mintA (usually SOL) and receives mintB (token)
+      amountA =
+        buyAccounts.tokenChanges?.mintA?.userInput ||
+        buyAccounts.params?.amount ||
+        "";
+      amountB = buyAccounts.tokenChanges?.mintB?.userReceived || "";
+    } else if (type === "sell") {
+      // In a sell, user sends mintB (token) and receives mintA (usually SOL)
+      amountB =
+        buyAccounts.tokenChanges?.mintB?.userInput ||
+        buyAccounts.params?.amount ||
+        "";
+      amountA = buyAccounts.tokenChanges?.mintA?.userReceived || "";
+
+      // Fallback to absolute balance changes if input/received not available
+      if (!amountB && buyAccounts.tokenChanges?.mintB?.userBalanceChange) {
+        const change = buyAccounts.tokenChanges.mintB.userBalanceChange;
+        // If negative (user sent tokens), use absolute value
+        if (change.startsWith("-")) {
+          amountB = change.substring(1); // Remove negative sign
+        }
+      }
+
+      if (!amountA && buyAccounts.tokenChanges?.mintA?.userBalanceChange) {
+        const change = buyAccounts.tokenChanges.mintA.userBalanceChange;
+        // If positive (user received tokens), use it
+        if (!change.startsWith("-")) {
+          amountA = change;
+        }
+      }
+    }
+
+    console.log(
+      `Determined amounts for ${type}: amountA=${amountA}, amountB=${amountB}`
+    );
+
+    // Calculate fee if available (for future reference)
+    // This would need logic specific to how fees are calculated
+    const feePaid = "";
+
+    // Prepare metadata from token changes
+    const metadata = JSON.stringify({
+      params: buyAccounts.params,
+      tokenChanges: buyAccounts.tokenChanges,
+    });
+
+    // Insert user if not exists (upsert)
+    await db
+      .insert(users)
+      .values({
+        walletAddress: userWalletAddress,
+        createdAt: new Date(),
+      })
+      .onDuplicateKeyUpdate({
+        set: {
+          walletAddress: userWalletAddress, // Update with same value to avoid "No values to set" error
+        },
+      });
+
+    // Try to fetch token info if not in database
+    let tokenExists = true;
+    try {
+      const tokenCheck = await db.query.tokens.findFirst({
+        where: eq(tokens.tokenMintAddress, mintB),
+      });
+
+      if (!tokenCheck) {
+        tokenExists = false;
+        // Try to get token info from Helius
+        try {
+          const tokenData = await getTokenById(mintB);
+
+          // If we have token data, insert it
+          if (tokenData) {
+            // Extract data with proper type structure based on HeliusAssetData
+            const symbol = tokenData.content?.metadata?.symbol || "UNKNOWN";
+            const name = tokenData.content?.metadata?.name || "Unknown Token";
+
+            // Access token_info for decimals
+            let decimals = 9; // Default value
+            let transferFeeBasisPoints = 0;
+
+            // Handle decimals from token_info
+            if (tokenData.token_info?.decimals !== undefined) {
+              decimals = tokenData.token_info.decimals;
+            }
+
+            // Check for transfer fee in mint_extensions
+            if (
+              tokenData.mint_extensions?.transfer_fee_config?.newer_transfer_fee
+                ?.transfer_fee_basis_points
+            ) {
+              transferFeeBasisPoints =
+                tokenData.mint_extensions.transfer_fee_config.newer_transfer_fee
+                  .transfer_fee_basis_points;
+            }
+
+            await db.insert(tokens).values({
+              tokenMintAddress: mintB,
+              tokenSymbol: symbol,
+              tokenName: name,
+              decimals: decimals,
+              transferFeeBasisPoints: transferFeeBasisPoints,
+              maximumFee: "0",
+              creatorWalletAddress: buyAccounts.owner,
+              createdAt: new Date(),
+            });
+
+            tokenExists = true;
+          }
+        } catch (error) {
+          console.warn(`Could not fetch token info for ${mintB}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error checking token ${mintB}:`, error);
+    }
+
+    // Try to fetch/create pool info if needed
+    let poolCheck = await db.query.pools.findFirst({
+      where: eq(pools.poolAddress, poolAddress),
+    });
+    console.log("POOL CHECK: ", poolCheck);
+
+    if (!poolCheck) {
+      // If pool doesn't exist, create a basic record
+      try {
+        await db.insert(pools).values({
+          poolAddress: poolAddress,
+          tokenMintAddress: mintB,
+          ownerAddress: buyAccounts.owner,
+          mintA: mintA,
+          mintB: mintB,
+          shift: "0", // Default value
+          initialTokenReserves: amountB || "0",
+          createdAt: new Date(),
+        });
+      } catch (error) {
+        console.warn(`Could not create pool record for ${poolAddress}:`, error);
+      }
+    }
+
+    // Check if a transaction with this signature already exists
+    const existingTransaction = await db.query.transactions.findFirst({
+      where: eq(transactions.transactionSignature, signature),
+    });
+
+    if (existingTransaction) {
+      // Transaction exists, update it with the detailed information
+      await db
+        .update(transactions)
+        .set({
+          tokenMintAddress: mintB,
+          poolAddress,
+          amountA,
+          amountB,
+          mintA,
+          mintB,
+          feePaid,
+          metadata,
+          status: "confirmed",
+          confirmedAt: new Date(),
+        })
+        .where(eq(transactions.id, existingTransaction.id));
+
+      console.log(`Updated existing ${type} transaction: ${signature}`);
+      console.log(
+        `User: ${userWalletAddress}, Amount: ${amountA} ${mintA} -> ${amountB} ${mintB}`
+      );
+
+      return {
+        ...existingTransaction,
+        tokenMintAddress: mintB,
+        poolAddress,
+        amountA,
+        amountB,
+        mintA,
+        mintB,
+        feePaid,
+        metadata,
+        status: "confirmed",
+      };
+    } else {
+      // No existing transaction, create a new one
+      const newTransaction: InsertTransaction = {
+        type,
+        status: "confirmed",
+        transactionSignature: signature,
+        userWalletAddress,
+        tokenMintAddress: mintB,
+        poolAddress,
+        amountA,
+        amountB,
+        mintA,
+        mintB,
+        feePaid,
+        metadata,
+        createdAt: new Date(),
+        confirmedAt: new Date(),
+      };
+
+      // Insert transaction record
+      const result = await db.insert(transactions).values(newTransaction);
+      console.log("INSERTED TRANSACTION: ", result);
+
+      console.log(
+        `Recorded ${type} transaction for token ${mintB} (${signature})`
+      );
+      console.log(
+        `User: ${userWalletAddress}, Amount: ${
+          type === "buy"
+            ? `${amountA} ${mintA} -> ${amountB} ${mintB}`
+            : `${amountB} ${mintB} -> ${amountA} ${mintA}`
+        }`
+      );
+      return newTransaction;
+    }
+  } catch (error) {
+    console.error(`Error recording Vertigo transaction:`, error);
+    throw error;
+  }
 }
