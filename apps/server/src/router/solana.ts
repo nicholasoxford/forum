@@ -259,9 +259,8 @@ export const solanaRouter = new Elysia({
         umi.use(signerIdentity(mySigner));
         const deserializedTxAsU8 = base64.serialize(signature);
         const deserializedTx = umi.transactions.deserialize(deserializedTxAsU8);
-        const response = await umi.rpc.sendTransaction(deserializedTx, {
-          skipPreflight: true,
-        });
+
+        const response = await umi.rpc.sendTransaction(deserializedTx, {});
 
         const signatureString = base58.deserialize(response)[0];
 
@@ -273,7 +272,7 @@ export const solanaRouter = new Elysia({
         // Wait for confirmation
         const confirmation = await waitForSignatureConfirmation({
           signature: signatureString,
-          timeout: 60000,
+          timeout: 20000,
           interval: 200,
           heliusApiKey: HELIUS_API_KEY,
         });

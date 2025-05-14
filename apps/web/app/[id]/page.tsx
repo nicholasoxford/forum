@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
 import { Copy, ExternalLink, MessageSquare } from "lucide-react";
-import Image from "next/image";
 import { BuyTokenDialog } from "@/components/buy-token-dialog";
 import { SellTokenDialog } from "@/components/sell-token-dialog";
 import { TokenBalance } from "@/components/token-balance";
@@ -15,8 +14,6 @@ export default async function TokenPage({ params }: { params: paramsType }) {
 
   try {
     const { data: tokenData, error } = await server.tokens({ id }).get({});
-    console.log("TOKEN DATA: ", tokenData);
-    console.log("ERROR: ", error?.value.message);
     if (error) {
       redirect("/");
     }

@@ -30,6 +30,7 @@ import {
 import { base64 } from "@metaplex-foundation/umi/serializers";
 import { BuyTokensParams } from "@workspace/types";
 import { getPayerKeypair } from "@workspace/solana";
+import { optimizeTransaction } from "@workspace/solana/src/utils";
 
 /**
  * Wraps SOL to wSOL
@@ -302,6 +303,7 @@ export async function buyTokens(
     // Build transaction
     let tx = transactionBuilder();
     const signer = createNoopSigner(fromWeb3JsPublicKey(userPublicKey));
+    umi.use(signerIdentity(signer));
 
     // Add wrap instructions if needed
     if (wrapTx) {
@@ -320,9 +322,14 @@ export async function buyTokens(
       signers: [signer],
       bytesCreatedOnChain: 0,
     });
+    console.log("Transaction before optimization:");
 
+    // Optimize transaction with priority fees and compute units
+    tx = await optimizeTransaction(umi, tx);
+    // get rpc url
+    const rpcUrl = umi.rpc.getEndpoint();
+    console.log("RPC URL:", rpcUrl);
     // Sign and serialize transaction
-    umi.use(signerIdentity(signer));
     const buyTx = await tx
       .useV0()
       .setBlockhash(await umi.rpc.getLatestBlockhash())

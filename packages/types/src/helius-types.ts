@@ -29,7 +29,7 @@ export const env: SolanaEnv = {
   HELIUS_API_KEY: process.env.HELIUS_API_KEY || "",
 };
 
-export const HELIUS_RPC_URL = "https://devnet.helius-rpc.com/?api-key=";
+export const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=";
 
 export interface WaitForSignatureConfirmationArgs {
   signature: string;
