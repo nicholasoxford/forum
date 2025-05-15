@@ -57,11 +57,11 @@ export default async function TokenPage({ params }: { params: paramsType }) {
         <div className="flex flex-col md:flex-row gap-4 mb-4">
           {/* Token info */}
           <div className="w-full md:w-3/4 bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row md:gap-2">
               {/* Token image */}
-              <div className="flex flex-col items-center justify-center md:w-1/3">
+              <div className="flex flex-col items-center justify-center md:w-1/3 md:pr-2">
                 {tokenImage ? (
-                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full max-w-[180px]">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full ">
                     <img
                       src={tokenImage}
                       alt={tokenName}
@@ -80,7 +80,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
               </div>
 
               {/* Token details */}
-              <div className="md:w-2/3">
+              <div className="md:w-2/3 md:pl-0">
                 <TokenHeader
                   tokenName={tokenName}
                   tokenSymbol={tokenSymbol}
