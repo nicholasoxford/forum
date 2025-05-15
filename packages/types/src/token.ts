@@ -52,6 +52,10 @@ export interface HeliusAssetData {
     token_program?: string;
     mint_authority?: string;
     freeze_authority?: string;
+    price_info?: {
+      price_per_token?: number;
+      currency?: string;
+    };
   };
   mint_extensions?: {
     transfer_fee_config?: {

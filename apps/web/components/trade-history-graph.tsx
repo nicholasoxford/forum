@@ -69,11 +69,15 @@ const TimeFrameButton = ({
 }) => (
   <button
     onClick={onClick}
-    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-      active
-        ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
-        : "bg-zinc-800/50 text-zinc-400 border border-zinc-700/50 hover:bg-zinc-700/30 hover:text-zinc-300"
-    }`}
+    className={`
+      px-3 py-1 text-xs font-medium rounded 
+      ${
+        active
+          ? "bg-violet-600 text-white"
+          : "bg-zinc-800/60 text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-300"
+      }
+      transition-colors
+    `}
   >
     {label}
   </button>
@@ -274,39 +278,55 @@ export function TradeHistoryGraph({
 
   return (
     <div className={`w-full ${className}`}>
-      <div className="flex space-x-2 mb-2 justify-end">
-        <TimeFrameButton
-          active={timeFrame === "1m"}
-          label="1M"
-          onClick={() => handleTimeFrameChange("1m")}
-        />
-        <TimeFrameButton
-          active={timeFrame === "1h"}
-          label="1H"
-          onClick={() => handleTimeFrameChange("1h")}
-        />
-        <TimeFrameButton
-          active={timeFrame === "1d"}
-          label="1D"
-          onClick={() => handleTimeFrameChange("1d")}
-        />
-        <TimeFrameButton
-          active={timeFrame === "1w"}
-          label="1W"
-          onClick={() => handleTimeFrameChange("1w")}
-        />
-        <TimeFrameButton
-          active={timeFrame === "all"}
-          label="ALL"
-          onClick={() => handleTimeFrameChange("all")}
-        />
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm text-zinc-400">
+          {displayedChartData.length > 0 && (
+            <span className="font-medium">
+              Last:{" "}
+              <span className="text-white font-mono">
+                {displayedChartData.length > 0 &&
+                  displayedChartData[
+                    displayedChartData.length - 1
+                  ]?.price.toFixed(8)}
+              </span>{" "}
+              SOL
+            </span>
+          )}
+        </div>
+        <div className="flex space-x-2 justify-end">
+          <TimeFrameButton
+            active={timeFrame === "1m"}
+            label="1M"
+            onClick={() => handleTimeFrameChange("1m")}
+          />
+          <TimeFrameButton
+            active={timeFrame === "1h"}
+            label="1H"
+            onClick={() => handleTimeFrameChange("1h")}
+          />
+          <TimeFrameButton
+            active={timeFrame === "1d"}
+            label="1D"
+            onClick={() => handleTimeFrameChange("1d")}
+          />
+          <TimeFrameButton
+            active={timeFrame === "1w"}
+            label="1W"
+            onClick={() => handleTimeFrameChange("1w")}
+          />
+          <TimeFrameButton
+            active={timeFrame === "all"}
+            label="ALL"
+            onClick={() => handleTimeFrameChange("all")}
+          />
+        </div>
       </div>
 
-      <div className="w-full h-64">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-full min-h-[300px]">
+        <ResponsiveContainer width="100%" height={400}>
           <LineChart
             data={displayedChartData}
-            margin={{ top: 10, right: 20, left: 5, bottom: 20 }}
+            margin={{ top: 10, right: 20, left: 10, bottom: 20 }}
           >
             <defs>
               <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
@@ -363,6 +383,34 @@ export function TradeHistoryGraph({
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Chart stats */}
+      {displayedChartData.length > 0 && (
+        <div className="flex flex-wrap gap-4 mt-4 text-xs md:text-sm">
+          <div className="bg-black/40 border border-zinc-800/60 rounded-lg px-3 py-2">
+            <span className="text-zinc-400">Min</span>
+            <div className="font-mono text-white">
+              {Math.min(...displayedChartData.map((d) => d.price)).toFixed(8)}
+            </div>
+          </div>
+          <div className="bg-black/40 border border-zinc-800/60 rounded-lg px-3 py-2">
+            <span className="text-zinc-400">Max</span>
+            <div className="font-mono text-white">
+              {Math.max(...displayedChartData.map((d) => d.price)).toFixed(8)}
+            </div>
+          </div>
+          <div className="bg-black/40 border border-zinc-800/60 rounded-lg px-3 py-2">
+            <span className="text-zinc-400">Avg</span>
+            <div className="font-mono text-white">{avgPrice.toFixed(8)}</div>
+          </div>
+          <div className="bg-black/40 border border-zinc-800/60 rounded-lg px-3 py-2">
+            <span className="text-zinc-400">Trades</span>
+            <div className="font-mono text-white">
+              {displayedChartData.length}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

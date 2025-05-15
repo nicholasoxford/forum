@@ -41,43 +41,7 @@ export const tokensRouter = new Elysia({
       response: GetAllTokensResponseSchema,
     }
   )
-  .get(
-    "/:id/pool",
-    async ({ params, set }) => {
-      try {
-        const { id } = params;
 
-        if (!id) {
-          set.status = 400;
-          return {
-            error: "Token ID is required",
-            message: "Please provide a token ID.",
-          };
-        }
-
-        const tokenPoolInfo = await getTokenPool(id);
-        return tokenPoolInfo;
-      } catch (error: any) {
-        console.error("[tokens/:id/pool GET]", error);
-        if (error.message && error.message.includes("Token not found")) {
-          set.status = 404;
-          return {
-            error: "Token not found",
-            message: error.message,
-          };
-        }
-        set.status = 500;
-        return {
-          error: "Internal server error",
-          message: error?.message || "Failed to fetch token pool",
-        };
-      }
-    },
-    {
-      params: GetTokenPoolParamsSchema,
-      response: GetTokenPoolResponseSchema,
-    }
-  )
   .get(
     "/:id",
     async ({ params, set }) => {
@@ -120,6 +84,43 @@ export const tokensRouter = new Elysia({
     {
       params: GetTokenByIdParamsSchema,
       response: GetTokenByIdResponseSchema,
+    }
+  )
+  .get(
+    "/:id/pool",
+    async ({ params, set }) => {
+      try {
+        const { id } = params;
+
+        if (!id) {
+          set.status = 400;
+          return {
+            error: "Token ID is required",
+            message: "Please provide a token ID.",
+          };
+        }
+
+        const tokenPoolInfo = await getTokenPool(id);
+        return tokenPoolInfo;
+      } catch (error: any) {
+        console.error("[tokens/:id/pool GET]", error);
+        if (error.message && error.message.includes("Token not found")) {
+          set.status = 404;
+          return {
+            error: "Token not found",
+            message: error.message,
+          };
+        }
+        set.status = 500;
+        return {
+          error: "Internal server error",
+          message: error?.message || "Failed to fetch token pool",
+        };
+      }
+    },
+    {
+      params: GetTokenPoolParamsSchema,
+      response: GetTokenPoolResponseSchema,
     }
   )
   .get(

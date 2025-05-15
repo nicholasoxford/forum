@@ -1,7 +1,10 @@
 import { Elysia, t } from "elysia";
 import { getDb } from "@workspace/db";
 import { transactions as txTable } from "@workspace/db/src/schema";
-import { eq, and, not, isNull, or } from "drizzle-orm";
+import { eq, and, not, isNull, or, desc } from "drizzle-orm";
+import { getTokenById } from "@workspace/services"; // Import for direct SOL price fetching
+import { NATIVE_MINT } from "@solana/spl-token"; // Import NATIVE_MINT
+import { TradeStatsResponseSchema } from "@workspace/schemas";
 
 export const tradeStatsRouter = new Elysia({
   prefix: "/trade-stats",
@@ -20,30 +23,87 @@ export const tradeStatsRouter = new Elysia({
         throw new Error("Token mint address is required");
       }
 
-      // Query transactions with both amountA and amountB for this token
-      const txResults = await db
-        .select({
-          id: txTable.id,
-          type: txTable.type,
-          status: txTable.status,
-          transactionSignature: txTable.transactionSignature,
-          amountA: txTable.amountA,
-          amountB: txTable.amountB,
-          createdAt: txTable.createdAt,
-        })
-        .from(txTable)
-        .where(
-          and(
-            eq(txTable.tokenMintAddress, tokenMint),
-            eq(txTable.status, "confirmed"),
-            not(isNull(txTable.amountA)),
-            not(isNull(txTable.amountB)),
-            or(eq(txTable.type, "buy"), eq(txTable.type, "sell"))
+      // --- Start of parallel operations ---
+      const [txResults, solTokenData, currentTokenData] = await Promise.all([
+        db
+          .select({
+            id: txTable.id,
+            type: txTable.type,
+            status: txTable.status,
+            transactionSignature: txTable.transactionSignature,
+            amountA: txTable.amountA,
+            amountB: txTable.amountB,
+            createdAt: txTable.createdAt,
+          })
+          .from(txTable)
+          .where(
+            and(
+              eq(txTable.tokenMintAddress, tokenMint),
+              eq(txTable.status, "confirmed"),
+              not(isNull(txTable.amountA)),
+              not(isNull(txTable.amountB)),
+              or(eq(txTable.type, "buy"), eq(txTable.type, "sell"))
+            )
           )
-        )
-        .orderBy(txTable.createdAt);
+          .orderBy(desc(txTable.createdAt)), // Sort by newest first
+        getTokenById(NATIVE_MINT.toBase58()).catch((error) => {
+          console.error("Error fetching SOL price directly:", error);
+          return null; // Allow other operations to succeed
+        }),
+        getTokenById(tokenMint).catch((error) => {
+          console.error("Error fetching target token data:", error);
+          return null; // Allow other operations to succeed
+        }),
+      ]);
+      // --- End of parallel operations ---
 
-      // Convert null values to undefined for the response
+      // Get current SOL price
+      let solPrice = null;
+      if (solTokenData?.token_info?.price_info?.price_per_token) {
+        solPrice = solTokenData.token_info.price_info.price_per_token;
+      }
+
+      // Calculate token price if we have transactions
+      let latestPrice = null;
+      let latestPriceUsd = null;
+      let marketCapUsd = null;
+
+      // Fetch target token details for supply and decimals
+      let tokenSupply = null;
+      let tokenDecimals = 0;
+      if (
+        currentTokenData?.token_info?.supply &&
+        currentTokenData?.token_info?.decimals !== undefined
+      ) {
+        tokenSupply = BigInt(currentTokenData.token_info.supply);
+        tokenDecimals = currentTokenData.token_info.decimals;
+      }
+
+      if (txResults.length > 0) {
+        const latestTx = txResults[0]; // The first transaction is the newest
+        // SOL amount / token amount = price in SOL per token
+        const solAmount = parseFloat(latestTx?.amountA || "0");
+        const tokenAmount = parseFloat(latestTx?.amountB || "0");
+
+        if (tokenAmount > 0) {
+          latestPrice = solAmount / tokenAmount;
+
+          // Calculate USD price if SOL price is available
+          if (solPrice !== null) {
+            latestPriceUsd = latestPrice * solPrice;
+
+            // Calculate market cap if we have price and supply
+            if (latestPriceUsd !== null && tokenSupply !== null) {
+              const supplyAsNumber =
+                Number(tokenSupply) / Math.pow(10, tokenDecimals);
+              marketCapUsd = latestPriceUsd * supplyAsNumber;
+            }
+          }
+        }
+      }
+
+      // Convert null values to undefined for the response fields that expect it (or keep as null)
+      // The tradeHistory itself will be sorted newest to oldest based on the query
       const tradeHistory = txResults.map((tx) => ({
         ...tx,
         transactionSignature: tx.transactionSignature ?? undefined,
@@ -54,7 +114,11 @@ export const tradeStatsRouter = new Elysia({
       // Format the response
       return {
         tokenMint,
-        tradeHistory,
+        latestPrice, // This can be null
+        latestPriceUsd, // This can be null
+        solPrice, // This can be null
+        marketCapUsd, // Add marketCapUsd to response
+        tradeHistory, // Sorted by newest first
       };
     } catch (error: any) {
       console.error("[trade-stats/:tokenMint GET]", error);
@@ -67,20 +131,7 @@ export const tradeStatsRouter = new Elysia({
       tokenMint: t.String(),
     }),
     response: {
-      200: t.Object({
-        tokenMint: t.String(),
-        tradeHistory: t.Array(
-          t.Object({
-            id: t.Number(),
-            type: t.String(),
-            status: t.String(),
-            transactionSignature: t.Optional(t.String()),
-            amountA: t.Optional(t.String()),
-            amountB: t.Optional(t.String()),
-            createdAt: t.Any(),
-          })
-        ),
-      }),
+      200: TradeStatsResponseSchema,
       400: t.Object({
         error: t.String(),
       }),

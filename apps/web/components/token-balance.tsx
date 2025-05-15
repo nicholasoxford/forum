@@ -9,19 +9,14 @@ interface TokenBalanceProps {
   tokenMint: string;
 }
 
-interface TokenAmount {
-  amount: string;
-  decimals: number;
-  uiAmount: number;
-  uiAmountString: string;
-}
-
-interface TokenBalanceResponse {
-  wallet: string;
-  mint: string;
-  balance: TokenAmount;
-  tokenAccount: string;
-  exists: boolean;
+// Helper function to format numbers with commas
+function formatNumberWithCommas(numberString: string | null | undefined) {
+  if (numberString === null || numberString === undefined) {
+    return "0";
+  }
+  const parts = numberString.split(".");
+  parts[0] = parts[0]!.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return parts.join(".");
 }
 
 export function TokenBalance({ tokenMint }: TokenBalanceProps) {
@@ -45,7 +40,7 @@ export function TokenBalance({ tokenMint }: TokenBalanceProps) {
           },
         });
         if (error) {
-          throw new Error(error.value.message || "Failed to load balance");
+          throw new Error(error.value?.message || "Failed to load balance");
         }
         // Type assertion for the response
 
@@ -85,7 +80,7 @@ export function TokenBalance({ tokenMint }: TokenBalanceProps) {
   return (
     <div className="font-medium">
       {balance ? (
-        <span className="text-white">{balance}</span>
+        <span className="text-white">{formatNumberWithCommas(balance)}</span>
       ) : (
         <span className="text-zinc-400">0</span>
       )}

@@ -20,7 +20,7 @@ import {
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { NATIVE_MINT } from "@solana/spl-token";
-import { getPoolInfo } from "@workspace/services";
+import { getPoolInfo, getTokenById } from "@workspace/services";
 import {
   initializeVertigoProgram,
   parseVertigoError,
@@ -156,6 +156,17 @@ export const solanaRouter = new Elysia({
       },
     }
   )
+  .get("/sol-price", async ({ set }) => {
+    const res = await getTokenById(NATIVE_MINT.toBase58());
+    const priceInfo = res.token_info?.price_info;
+    // set 30 second cache
+    set.headers["Cache-Control"] = "public, max-age=30";
+    return {
+      success: true,
+      price: priceInfo?.price_per_token,
+      currency: priceInfo?.currency,
+    };
+  })
   .post(
     "/quoteBuy",
     async ({ body }) => {
