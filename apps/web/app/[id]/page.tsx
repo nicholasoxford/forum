@@ -1,21 +1,17 @@
 import { redirect } from "next/navigation";
 import { Button } from "@workspace/ui/components/button";
 import Link from "next/link";
-import { Copy, ExternalLink, MessageSquare } from "lucide-react";
 import { BuyTokenDialog } from "@/components/buy-token-dialog";
 import { SellTokenDialog } from "@/components/sell-token-dialog";
 import { TokenBalance } from "@/components/token-balance";
 import { server } from "@/utils/elysia";
 import { TradeHistoryGraph } from "@/components/trade-history-graph";
-import { TokenPriceDisplay } from "@/components/token-price-display";
-import { TokenQuickActions } from "@/components/token-details/token-quick-actions";
 import { TokenHeader } from "@/components/token-details/token-header";
 import { TokenMetrics } from "@/components/token-details/token-metrics";
-import { TokenBalanceCard } from "@/components/token-details/token-balance-card";
 import { TokenAttributes } from "@/components/token-details/token-attributes";
-import { TokenOnchainDetails } from "@/components/token-details/token-onchain-details";
 import { TokenRawData } from "@/components/token-details/token-raw-data";
 import { TradeTable } from "@/components/token-details/trade-table";
+import { MessageSquare } from "lucide-react";
 
 export type paramsType = Promise<{ id: string }>;
 export default async function TokenPage({ params }: { params: paramsType }) {
@@ -61,7 +57,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
               {/* Token image */}
               <div className="flex flex-col items-center justify-center md:w-1/3 md:pr-2">
                 {tokenImage ? (
-                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full ">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full max-w-[180px] md:max-w-full">
                     <img
                       src={tokenImage}
                       alt={tokenName}
