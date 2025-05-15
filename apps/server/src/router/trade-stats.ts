@@ -4,6 +4,7 @@ import { transactions as txTable } from "@workspace/db/src/schema";
 import { eq, and, not, isNull, or, desc } from "drizzle-orm";
 import { getTokenById } from "@workspace/services"; // Import for direct SOL price fetching
 import { NATIVE_MINT } from "@solana/spl-token"; // Import NATIVE_MINT
+import { LAMPORTS_PER_SOL } from "@solana/web3.js"; // For converting lamports → SOL
 import { TradeStatsResponseSchema } from "@workspace/schemas";
 
 export const tradeStatsRouter = new Elysia({
@@ -80,21 +81,39 @@ export const tradeStatsRouter = new Elysia({
       }
 
       if (txResults.length > 0) {
-        const latestTx = txResults[0]; // The first transaction is the newest
-        // SOL amount / token amount = price in SOL per token
-        const solAmount = parseFloat(latestTx?.amountA || "0");
-        const tokenAmount =
-          parseFloat(latestTx?.amountB || "0") / Math.pow(10, tokenDecimals);
+        /*
+         * Instead of relying on a single trade which can be an outlier,
+         * calculate a simple volume-weighted average price (VWAP) across
+         * the most recent 25 trades (or fewer if less available).
+         */
 
-        if (tokenAmount > 0) {
-          latestPrice = solAmount / tokenAmount;
+        const sampleWindow = 25;
+        const tradesForPrice = txResults.slice(0, sampleWindow);
 
-          // Calculate USD price if SOL price is available
+        let aggregatedSol = 0; // in SOL (not lamports)
+        let aggregatedTokens = 0; // in UI token units
+
+        for (const tx of tradesForPrice) {
+          const solLamports = parseFloat(tx.amountA || "0");
+          const solUi = solLamports / LAMPORTS_PER_SOL;
+
+          const tokenUi =
+            parseFloat(tx.amountB || "0") / Math.pow(10, tokenDecimals);
+
+          // Skip obviously bad data
+          if (solUi === 0 || tokenUi === 0) continue;
+
+          aggregatedSol += solUi;
+          aggregatedTokens += tokenUi;
+        }
+
+        if (aggregatedTokens > 0) {
+          latestPrice = aggregatedSol / aggregatedTokens;
+
           if (solPrice !== null) {
             latestPriceUsd = latestPrice * solPrice;
 
-            // Calculate market cap if we have price and supply
-            if (latestPriceUsd !== null && tokenSupply !== null) {
+            if (tokenSupply !== null) {
               const supplyAsNumber =
                 Number(tokenSupply) / Math.pow(10, tokenDecimals);
               marketCapUsd = latestPriceUsd * supplyAsNumber;

@@ -33,6 +33,12 @@ export default async function TokenPage({ params }: { params: paramsType }) {
       return;
     }
 
+    // Fetch trade stats to get market cap data
+    const { data: tradeStats, error: tradeStatsError } = await server[
+      "trade-stats"
+    ]({ tokenMint: id }).get({});
+    const marketCapUsd = tradeStats?.marketCapUsd || null;
+
     const tokenName = tokenData.content?.metadata?.name || "Unnamed Token";
     const tokenSymbol = tokenData.content?.metadata?.symbol || "";
     const tokenImage =
@@ -82,38 +88,14 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                   tokenMint={tokenData.id}
                 />
 
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <div className="inline-flex items-center px-2 py-1 bg-black/40 border border-zinc-800/60 rounded-lg">
-                    <span className="text-zinc-400 text-xs mr-2">Type:</span>
-                    <span className="text-white text-xs font-medium">
-                      {tokenData.interface}
-                    </span>
-                  </div>
-                  <div className="inline-flex items-center px-2 py-1 bg-black/40 border border-zinc-800/60 rounded-lg">
-                    <span className="text-zinc-400 text-xs mr-2">Supply:</span>
-                    <span className="text-white text-xs font-medium">
-                      {tokenData.token_info?.supply
-                        ? (
-                            Number(tokenData.token_info.supply) /
-                            Math.pow(10, tokenData.token_info?.decimals || 0)
-                          ).toLocaleString()
-                        : "Unknown"}
-                    </span>
-                  </div>
-                  <div className="inline-flex items-center px-2 py-1 bg-black/40 border border-zinc-800/60 rounded-lg">
-                    <span className="text-zinc-400 text-xs mr-2">
-                      Decimals:
-                    </span>
-                    <span className="text-white text-xs font-medium">
-                      {tokenData.token_info?.decimals || "Unknown"}
-                    </span>
-                  </div>
-                  <div className="inline-flex items-center px-2 py-1 bg-black/40 border border-green-900/40 rounded-lg">
-                    <span className="text-zinc-400 text-xs mr-2">Fee:</span>
-                    <span className="text-green-400 text-xs font-medium">
-                      {transferFeePercentage}%
-                    </span>
-                  </div>
+                <div className="mt-3">
+                  <TokenMetrics
+                    interface={tokenData.interface}
+                    supply={tokenData.token_info?.supply?.toString()}
+                    decimals={tokenData.token_info?.decimals}
+                    transferFeePercentage={transferFeePercentage}
+                    marketCapUsd={marketCapUsd}
+                  />
                 </div>
               </div>
             </div>

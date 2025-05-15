@@ -4,6 +4,7 @@ import { server } from "@/utils/elysia";
 import { ArrowDown, ArrowUp, Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import useSWR from "swr";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 interface TokenPriceDisplayProps {
   tokenMint: string;
@@ -55,8 +56,13 @@ export function TokenPriceDisplay({
       const latestTx = data.tradeHistory[0];
       if (!latestTx || !latestTx.amountA || !latestTx.amountB) return;
 
-      const currentPrice =
-        parseFloat(latestTx.amountA) / parseFloat(latestTx.amountB);
+      const tokenDecimals = data.tokenDecimals || 0;
+
+      // Calculate per-token price properly
+      const solAmount = parseFloat(latestTx.amountA) / LAMPORTS_PER_SOL;
+      const tokenAmount =
+        parseFloat(latestTx.amountB) / Math.pow(10, tokenDecimals);
+      const currentPrice = solAmount / tokenAmount;
 
       // Find a transaction close to 24h ago
       let oldestIdx = data.tradeHistory.length - 1;
@@ -71,8 +77,11 @@ export function TokenPriceDisplay({
       const oldestTx = data.tradeHistory[oldestIdx];
       if (!oldestTx || !oldestTx.amountA || !oldestTx.amountB) return;
 
-      const oldPrice =
-        parseFloat(oldestTx.amountA) / parseFloat(oldestTx.amountB);
+      // Calculate old per-token price properly
+      const oldSolAmount = parseFloat(oldestTx.amountA) / LAMPORTS_PER_SOL;
+      const oldTokenAmount =
+        parseFloat(oldestTx.amountB) / Math.pow(10, tokenDecimals);
+      const oldPrice = oldSolAmount / oldTokenAmount;
 
       if (oldPrice > 0) {
         const absoluteChange = currentPrice - oldPrice;
@@ -103,26 +112,61 @@ export function TokenPriceDisplay({
     );
   }
 
-  const solPrice = data.solPrice; // SOL price in USD
-  let latestPrice = data.latestPrice; // Token price in SOL
-  let latestPriceUsd = data.latestPriceUsd; // Token price in USD
+  const tokenDecimals = data.tokenDecimals || 0;
+  const solPrice = data.solPrice || 0; // SOL price in USD
 
-  // If direct USD price is not available, calculate it
-  if (latestPrice && solPrice && !latestPriceUsd) {
-    latestPriceUsd = latestPrice * solPrice;
+  // Calculate per-token prices directly from the most recent transaction
+  let latestPrice = 0;
+  let latestPriceUsd = 0;
+
+  if (data.tradeHistory && data.tradeHistory.length > 0) {
+    const latestTx = data.tradeHistory[0];
+    if (latestTx?.amountA && latestTx?.amountB) {
+      // Convert raw token amount using decimals
+      const solAmount = parseFloat(latestTx.amountA) / LAMPORTS_PER_SOL;
+      const tokenAmount =
+        parseFloat(latestTx.amountB) / Math.pow(10, tokenDecimals);
+
+      // Calculate price per token
+      latestPrice = solAmount / tokenAmount;
+
+      // Calculate USD price if SOL price is available
+      if (solPrice) {
+        latestPriceUsd = latestPrice * solPrice;
+      }
+    }
+  } else if (data.latestPrice) {
+    // Use server-provided price as fallback
+    latestPrice = data.latestPrice;
+    latestPriceUsd = data.latestPriceUsd || latestPrice * solPrice;
   }
 
-  const formattedPrice = latestPrice
-    ? latestPrice < 0.000001
-      ? latestPrice.toExponential(4)
-      : latestPrice.toFixed(8)
-    : "N/A";
+  // Format SOL price based on its magnitude
+  const formatSolPrice = (price: number) => {
+    if (isNaN(price) || price === 0) return "N/A";
 
-  const formattedUsdPrice = latestPriceUsd
-    ? latestPriceUsd < 0.000001
-      ? `$${latestPriceUsd.toExponential(2)}`
-      : `$${latestPriceUsd.toFixed(latestPriceUsd < 0.01 ? 6 : 4)}`
-    : "N/A";
+    if (price < 0.000001) return price.toFixed(10);
+    if (price < 0.0001) return price.toFixed(8);
+    if (price < 0.01) return price.toFixed(6);
+    if (price < 1) return price.toFixed(4);
+    if (price < 1000) return price.toFixed(2);
+    return price.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
+
+  // Format USD price based on its magnitude
+  const formatUsdPrice = (price: number) => {
+    if (isNaN(price) || price === 0) return "N/A";
+
+    if (price < 0.000001) return `$${price.toExponential(2)}`;
+    if (price < 0.0001) return `$${price.toFixed(6)}`;
+    if (price < 0.01) return `$${price.toFixed(4)}`;
+    if (price < 1) return `$${price.toFixed(3)}`;
+    if (price < 1000) return `$${price.toFixed(2)}`;
+    return `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  };
+
+  const formattedPrice = formatSolPrice(latestPrice);
+  const formattedUsdPrice = formatUsdPrice(latestPriceUsd);
 
   const getPriceChangeColor = () => {
     if (!priceChange.percent) return "text-zinc-400";
@@ -140,24 +184,26 @@ export function TokenPriceDisplay({
 
   return (
     <div className={`flex flex-col ${className}`}>
+      {/* USD price - display first and prominent */}
       <div className="flex items-center gap-1">
         <span className="text-3xl font-bold font-mono text-white">
-          {formattedPrice}
+          {formattedUsdPrice}
         </span>
-        <span className="text-zinc-400 text-sm">SOL</span>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-lg text-zinc-300">{formattedUsdPrice}</span>
+      {/* Price change percentage */}
+      {priceChange.percent !== null && (
+        <div className={`flex items-center gap-0.5 ${getPriceChangeColor()}`}>
+          {getPriceChangeIcon()}
+          <span className="text-sm font-medium">
+            {Math.abs(priceChange.percent).toFixed(2)}%
+          </span>
+        </div>
+      )}
 
-        {priceChange.percent !== null && (
-          <div className={`flex items-center gap-0.5 ${getPriceChangeColor()}`}>
-            {getPriceChangeIcon()}
-            <span className="text-sm font-medium">
-              {Math.abs(priceChange.percent).toFixed(2)}%
-            </span>
-          </div>
-        )}
+      {/* SOL price - display second as secondary info */}
+      <div className="flex items-center gap-2 mt-1">
+        <span className="text-sm text-zinc-400">{formattedPrice} SOL</span>
       </div>
 
       <div className="text-xs text-zinc-500 mt-1">
