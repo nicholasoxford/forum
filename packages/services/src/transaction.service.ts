@@ -544,21 +544,21 @@ export async function recordVertigoTransaction(transactionData: {
         console.warn(`Could not create pool record for ${poolAddress}:`, error);
       }
     }
+    console.log({ checkDuplicate });
+    // // First check if this is a duplicate and we're just checking
+    // if (checkDuplicate) {
+    //   const existingTransaction = await db.query.transactions.findFirst({
+    //     where: eq(transactions.transactionSignature, signature),
+    //   });
 
-    // First check if this is a duplicate and we're just checking
-    if (checkDuplicate) {
-      const existingTransaction = await db.query.transactions.findFirst({
-        where: eq(transactions.transactionSignature, signature),
-      });
-
-      if (existingTransaction) {
-        console.log(`Skipping duplicate transaction: ${signature}`);
-        return {
-          ...existingTransaction,
-          duplicate: true,
-        };
-      }
-    }
+    //   if (existingTransaction) {
+    //     console.log(`Skipping duplicate transaction: ${signature}`);
+    //     return {
+    //       ...existingTransaction,
+    //       duplicate: true,
+    //     };
+    //   }
+    // }
 
     // Prepare transaction data
     const transactionValues: InsertTransaction = {

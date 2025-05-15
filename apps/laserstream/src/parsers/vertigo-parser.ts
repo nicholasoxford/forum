@@ -399,8 +399,6 @@ export const extractVertigoAccountsFromSell = (
   decodedData?: any
 ): VertigoBuyAccountsResponse | null => {
   try {
-    console.log("Using fallback extraction method for sell instruction");
-
     // Check if we have valid accounts in the instruction
     if (!ix || !ix.accounts || !Array.isArray(ix.accounts)) {
       console.log("No valid accounts array in instruction");
