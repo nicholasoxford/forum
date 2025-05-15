@@ -83,7 +83,8 @@ export const tradeStatsRouter = new Elysia({
         const latestTx = txResults[0]; // The first transaction is the newest
         // SOL amount / token amount = price in SOL per token
         const solAmount = parseFloat(latestTx?.amountA || "0");
-        const tokenAmount = parseFloat(latestTx?.amountB || "0");
+        const tokenAmount =
+          parseFloat(latestTx?.amountB || "0") / Math.pow(10, tokenDecimals);
 
         if (tokenAmount > 0) {
           latestPrice = solAmount / tokenAmount;
@@ -118,6 +119,7 @@ export const tradeStatsRouter = new Elysia({
         latestPriceUsd, // This can be null
         solPrice, // This can be null
         marketCapUsd, // Add marketCapUsd to response
+        tokenDecimals, // Include token decimals in response
         tradeHistory, // Sorted by newest first
       };
     } catch (error: any) {

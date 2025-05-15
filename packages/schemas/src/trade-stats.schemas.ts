@@ -6,6 +6,7 @@ export const TradeStatsResponseSchema = t.Object({
   latestPriceUsd: t.Union([t.Number(), t.Null()]),
   solPrice: t.Union([t.Number(), t.Null()]),
   marketCapUsd: t.Union([t.Number(), t.Null()]),
+  tokenDecimals: t.Number(),
   tradeHistory: t.Array(
     t.Object({
       id: t.Number(),
