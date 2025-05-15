@@ -59,20 +59,20 @@ export default async function TokenPage({ params }: { params: paramsType }) {
           <div className="w-full md:w-3/4 bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
             <div className="flex flex-col md:flex-row gap-4">
               {/* Token image */}
-              <div className="flex flex-col items-center justify-center md:w-1/4">
+              <div className="flex flex-col items-center justify-center md:w-1/3">
                 {tokenImage ? (
-                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full max-w-[120px]">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full max-w-[180px]">
                     <img
                       src={tokenImage}
                       alt={tokenName}
                       className="object-cover w-full h-full"
-                      width={120}
-                      height={120}
+                      width={180}
+                      height={180}
                     />
                   </div>
                 ) : (
-                  <div className="relative aspect-square rounded-lg overflow-hidden bg-violet-900/20 flex items-center justify-center border border-violet-500/20 w-full max-w-[120px]">
-                    <span className="text-4xl font-bold text-violet-500/50">
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-violet-900/20 flex items-center justify-center border border-violet-500/20 w-full max-w-[180px]">
+                    <span className="text-5xl font-bold text-violet-500/50">
                       {tokenSymbol?.substring(0, 2) || "??"}
                     </span>
                   </div>
@@ -80,7 +80,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
               </div>
 
               {/* Token details */}
-              <div className="md:w-3/4">
+              <div className="md:w-2/3">
                 <TokenHeader
                   tokenName={tokenName}
                   tokenSymbol={tokenSymbol}
