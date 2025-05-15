@@ -2,6 +2,7 @@ import { createDb } from "@workspace/db";
 import { getDb } from "@workspace/db";
 import { transactions } from "@workspace/db/src/schema";
 import { sql, and, eq } from "drizzle-orm";
+import { createUserService, UserService } from "@workspace/services";
 
 // Define transaction types for type safety
 export type TransactionType =
@@ -16,7 +17,14 @@ export type TransactionType =
 export type TransactionStatus = "pending" | "confirmed" | "failed";
 
 export class ForumTransactions {
-  constructor(private readonly db: ReturnType<typeof createDb>) {}
+  private userService: UserService;
+
+  constructor(
+    private readonly db: ReturnType<typeof createDb>,
+    userService?: UserService
+  ) {
+    this.userService = userService || createUserService(db);
+  }
 
   /**
    * Create a new transaction record
@@ -36,6 +44,9 @@ export class ForumTransactions {
     metadata?: Record<string, any>;
     errorMessage?: string;
   }) {
+    // Ensure user exists in database before creating transaction
+    await this.userService.getOrCreateUser(data.userWalletAddress);
+
     const [result] = await this.db.insert(transactions).values({
       type: data.type,
       status: data.status || "pending",
