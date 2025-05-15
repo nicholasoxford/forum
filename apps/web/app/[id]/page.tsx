@@ -48,16 +48,16 @@ export default async function TokenPage({ params }: { params: paramsType }) {
     const transferFeePercentage = (transferFeeBasisPoints / 100).toFixed(2);
 
     return (
-      <div className="container mx-auto px-2 md:px-4 py-4 lg:py-6 relative">
+      <div className="container mx-auto px-4 py-4 sm:py-5 lg:py-6 relative">
         {/* Top section: Token info and quick actions */}
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
           {/* Token info */}
-          <div className="w-full md:w-3/4 bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
-            <div className="flex flex-col md:flex-row md:gap-2">
+          <div className="w-full lg:w-3/4 bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
+            <div className="flex flex-col sm:flex-row sm:gap-4">
               {/* Token image */}
-              <div className="flex flex-col items-center justify-center md:w-1/3 md:pr-2">
+              <div className="flex flex-col items-center sm:items-start sm:w-1/3 mb-4 sm:mb-0">
                 {tokenImage ? (
-                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full max-w-[180px] md:max-w-full">
+                  <div className="relative aspect-square rounded-lg overflow-hidden border border-violet-500/20 shadow-xl shadow-violet-500/10 w-full max-w-[180px] sm:max-w-none">
                     <img
                       src={tokenImage}
                       alt={tokenName}
@@ -67,7 +67,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                     />
                   </div>
                 ) : (
-                  <div className="relative aspect-square rounded-lg overflow-hidden bg-violet-900/20 flex items-center justify-center border border-violet-500/20 w-full max-w-[180px]">
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-violet-900/20 flex items-center justify-center border border-violet-500/20 w-full max-w-[180px] sm:max-w-none">
                     <span className="text-5xl font-bold text-violet-500/50">
                       {tokenSymbol?.substring(0, 2) || "??"}
                     </span>
@@ -76,7 +76,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
               </div>
 
               {/* Token details */}
-              <div className="md:w-2/3 md:pl-0">
+              <div className="sm:w-2/3">
                 <TokenHeader
                   tokenName={tokenName}
                   tokenSymbol={tokenSymbol}
@@ -98,7 +98,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
           </div>
 
           {/* Quick actions */}
-          <div className="w-full md:w-1/4 flex flex-col gap-2">
+          <div className="w-full lg:w-1/4 flex flex-col gap-2">
             <div className="bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
               <h2 className="text-zinc-400 text-xs mb-1">Your Balance</h2>
               <div className="flex items-center gap-2 mb-3">
@@ -135,7 +135,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
         </div>
 
         {/* Main content: Chart and trades */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           {/* Price chart - takes 2/3 of space on desktop */}
           <div className="lg:col-span-2 bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
             <div className="flex items-center justify-between mb-2">
@@ -145,7 +145,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
                 <span>Updated live</span>
               </div>
             </div>
-            <div className="h-[400px] md:h-[500px] bg-black/30">
+            <div className="h-[350px] sm:h-[400px] lg:h-[500px] bg-black/30">
               <TradeHistoryGraph tokenMint={id} />
             </div>
           </div>
@@ -155,14 +155,14 @@ export default async function TokenPage({ params }: { params: paramsType }) {
             <h2 className="text-lg font-semibold mb-3 text-white">
               Recent Trades
             </h2>
-            <div className="h-[400px] md:h-[500px] overflow-y-auto">
+            <div className="h-[350px] sm:h-[400px] lg:h-[500px] overflow-y-auto">
               <TradeTable tokenMint={id} />
             </div>
           </div>
         </div>
 
         {/* Token details and attributes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {/* On-chain info */}
           <div className="bg-black/60 border border-zinc-800 rounded-xl p-4 shadow-lg">
             <h2 className="text-lg font-semibold mb-3 text-white">
@@ -171,14 +171,14 @@ export default async function TokenPage({ params }: { params: paramsType }) {
             <div className="space-y-2">
               <div className="flex flex-wrap justify-between items-center py-2 border-b border-zinc-800/50">
                 <span className="text-zinc-400 text-sm">Token ID</span>
-                <span className="text-white text-sm font-mono truncate max-w-xs">
+                <span className="text-white text-sm font-mono truncate max-w-[200px] sm:max-w-xs">
                   {tokenData.id}
                 </span>
               </div>
               {tokenData.token_info?.token_program && (
                 <div className="flex flex-wrap justify-between items-center py-2 border-b border-zinc-800/50">
                   <span className="text-zinc-400 text-sm">Token Program</span>
-                  <span className="text-white text-sm font-mono truncate max-w-xs">
+                  <span className="text-white text-sm font-mono truncate max-w-[200px] sm:max-w-xs">
                     {tokenData.token_info.token_program}
                   </span>
                 </div>
@@ -186,7 +186,7 @@ export default async function TokenPage({ params }: { params: paramsType }) {
               {tokenData.token_info?.mint_authority && (
                 <div className="flex flex-wrap justify-between items-center py-2 border-b border-zinc-800/50">
                   <span className="text-zinc-400 text-sm">Mint Authority</span>
-                  <span className="text-white text-sm font-mono truncate max-w-xs">
+                  <span className="text-white text-sm font-mono truncate max-w-[200px] sm:max-w-xs">
                     {tokenData.token_info.mint_authority}
                   </span>
                 </div>
