@@ -36,9 +36,8 @@ export const WalletProvider: FC<WalletProviderProps> = memo(({ children }) => {
         localStorageKey: "wallet-provider",
         env: "mainnet" as Cluster,
         metadata: {
-          name: "Token Rewards Platform",
-          description:
-            "Earn rewards while you chat in our private Telegram group",
+          name: "Groupy",
+          description: "Groupy is fun",
           url: typeof window !== "undefined" ? window.location.origin : "",
           iconUrls: ["https://your-app-icon-url.com/favicon.ico"],
         },

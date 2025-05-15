@@ -11,8 +11,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Token Rewards Platform",
-  description: "Earn rewards while you chat in our private Telegram group",
+  title: "Groupy",
+  description: "Groupy is fun",
 };
 
 export default async function RootLayout({

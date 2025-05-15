@@ -1,5 +1,4 @@
-import type { Server, ServerWebSocket } from "bun";
-import fs from "fs";
+import type { Server } from "bun";
 import { VERTIGO_PROGRAM_ID } from "./parsers/protocol-parser";
 import {
   decodeVertigoInstructionData,
@@ -13,21 +12,6 @@ import { LaserStreamClient } from "./client";
 import { recordVertigoTransaction } from "@workspace/services/src/transaction.service";
 // Load environment variables from .env file
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const mutedPrograms: string[] = [];
-let argIndex = args.indexOf("--mute");
-while (argIndex !== -1) {
-  if (args[argIndex + 1] && !args[argIndex + 1].startsWith("--")) {
-    mutedPrograms.push(args[argIndex + 1]);
-  }
-  args.splice(
-    argIndex,
-    args[argIndex + 1] && !args[argIndex + 1].startsWith("--") ? 2 : 1
-  );
-  argIndex = args.indexOf("--mute");
-}
-
 // Get environment variables
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY || "";
 const HELIUS_WS_URL =
@@ -39,9 +23,6 @@ const maskedUrl = HELIUS_WS_URL.includes("api-key=")
   ? HELIUS_WS_URL.replace(/api-key=([^&]+)/, "api-key=***MASKED***")
   : HELIUS_WS_URL;
 log(`Using WebSocket URL: ${maskedUrl}`, "info");
-
-// Check if a program is muted
-const isProgramMuted = (programId: string) => mutedPrograms.includes(programId);
 
 // Start the new LaserStreamClient
 async function startLaserStreamClient(server: Server) {
@@ -80,22 +61,20 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
     logSuccess("Connected to Helius LaserStream");
 
     // Subscribe to Vertigo transactions if not muted
-    if (!isProgramMuted(VERTIGO_PROGRAM_ID)) {
-      const directVertigoSubscriptionId = await client.subscribeToTransactions(
-        {
-          accountInclude: ["vrTGoBuy5rYSxAfV3jaRJWHH6nN9WK4NRExGxsk1bCJ"],
-        },
-        {
-          commitment: "processed",
-          encoding: "jsonParsed",
-          transactionDetails: "full",
-          maxSupportedTransactionVersion: 1,
-        }
-      );
-      logSuccess(
-        `Subscribed directly to Vertigo with ID: ${directVertigoSubscriptionId}`
-      );
-    }
+    const directVertigoSubscriptionId = await client.subscribeToTransactions(
+      {
+        accountInclude: ["vrTGoBuy5rYSxAfV3jaRJWHH6nN9WK4NRExGxsk1bCJ"],
+      },
+      {
+        commitment: "processed",
+        encoding: "jsonParsed",
+        transactionDetails: "full",
+        maxSupportedTransactionVersion: 1,
+      }
+    );
+    logSuccess(
+      `Subscribed directly to Vertigo with ID: ${directVertigoSubscriptionId}`
+    );
 
     logSuccess("All subscriptions set up and listeners attached");
 
@@ -118,7 +97,7 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
     });
 
     // Modify the client.on("transactionNotification") callback to include decoding instruction data
-    client.on("transactionNotification", (notification) => {
+    client.on("transactionNotification", async (notification) => {
       const txData = notification.params.result;
 
       // Update lastTxTime for the health check
@@ -136,160 +115,140 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
         (key: any) => key.pubkey === VERTIGO_PROGRAM_ID
       );
 
-      if (hasVertigoAccount) {
-        console.log("🔎 VERTIGO ACCOUNT FOUND IN TRANSACTION!");
-        console.log(
-          `Transaction details: ${JSON.stringify({ signature: txData.signature, slot: txData.slot })}`
-        );
+      if (!hasVertigoAccount) {
+        console.log("🔎 NO VERTIGO ACCOUNT FOUND IN TRANSACTION!");
+        return;
+      }
 
-        // Extract and decode Vertigo instruction data
-        const instructions =
-          txData.transaction?.transaction?.message?.instructions || [];
+      console.log("🔎 VERTIGO ACCOUNT FOUND IN TRANSACTION!");
+      console.log(
+        `Transaction details: ${JSON.stringify({ signature: txData.signature, slot: txData.slot })}`
+      );
 
-        for (const ix of instructions) {
-          if (ix.programId === VERTIGO_PROGRAM_ID) {
-            // Extract accounts for specific instructions
-            const decoded = decodeVertigoInstructionData(ix.data);
-            if (decoded) {
-              console.log(`Decoded Vertigo instruction: ${decoded.name}`);
-              console.log(`Instruction data:`, decoded.data);
-              if (decoded.name === "buy") {
-                // Log the transaction and instruction data we're passing
-                console.dir(txData.transaction?.meta, {
-                  depth: null,
-                });
-                // save the meta to a file
-                fs.writeFileSync(
-                  "meta.json",
-                  JSON.stringify(txData.transaction?.meta, null, 2)
-                );
+      // Extract and decode Vertigo instruction data
+      const instructions =
+        txData.transaction?.transaction?.message?.instructions || [];
 
-                // Use the specialized function for buy instructions with decoded params
-                const buyAccounts = extractVertigoAccountsFromBuy(
-                  txData,
-                  ix,
-                  decoded
-                );
-                if (buyAccounts) {
-                  console.log(
-                    `Extracted account indices for buy:`,
-                    buyAccounts
-                  );
+      for (const ix of instructions) {
+        if (ix.programId === VERTIGO_PROGRAM_ID) {
+          // Extract accounts for specific instructions
+          const decoded = decodeVertigoInstructionData(ix.data);
+          if (!decoded) {
+            console.log("🔎 NO DECODED INSTRUCTION FOUND IN TRANSACTION!");
+            return;
+          }
 
-                  // Record the transaction in the database using a self-executing async function
-                  (async () => {
-                    try {
-                      const result = await recordVertigoTransaction({
-                        signature: txData.signature,
-                        slot: txData.slot,
-                        buyAccounts,
-                        type: "buy",
-                        checkDuplicate: true,
-                      });
-                      if (result.duplicate) {
-                        console.log(
-                          `⚠️ Skipped duplicate buy transaction: ${txData.signature}`
-                        );
-                      } else {
-                        console.log(
-                          `✅ Successfully recorded buy transaction in database: ${txData.signature}`
-                        );
-                      }
-                    } catch (error) {
-                      console.error(
-                        `❌ Failed to record transaction in database:`,
-                        error
-                      );
-                    }
-                  })();
-                } else {
-                  console.log("Failed to extract buy accounts!");
-                }
-              } else {
-                // Extract accounts with indices first for debugging
-                const accountIndices = extractVertigoAccounts(ix, decoded.name);
-                if (accountIndices) {
-                  console.log(
-                    `Extracted account indices for ${decoded.name}:`,
-                    accountIndices
-                  );
-                }
+          console.log(`Decoded Vertigo instruction: ${decoded.name}`);
+          console.log(`Instruction data:`, decoded.data);
+          if (decoded.name === "buy") {
+            // Log the transaction and instruction data we're passing
+            console.dir(txData.transaction?.meta, {
+              depth: null,
+            });
 
-                // Extract accounts with full public keys
-                const accountsWithKeys = extractVertigoAccountsWithKeys(
-                  txData,
-                  ix,
-                  decoded.name
-                );
-                if (accountsWithKeys) {
-                  console.log(
-                    `Account pubkeys for ${decoded.name}:`,
-                    accountsWithKeys
-                  );
+            // Use the specialized function for buy instructions with decoded params
+            const buyAccounts = extractVertigoAccountsFromBuy(
+              txData,
+              ix,
+              decoded
+            );
+            if (!buyAccounts) {
+              console.log("🔎 NO BUY ACCOUNTS FOUND IN TRANSACTION!");
+              return;
+            }
 
-                  // If it's a sell instruction, record it
-                  if (decoded.name === "sell") {
-                    console.log("Processing sell transaction...");
+            console.log(`Extracted account indices for buy:`, buyAccounts);
 
-                    // Extract sell accounts using our specialized function
-                    const sellAccounts = extractVertigoAccountsFromSell(
-                      txData,
-                      ix,
-                      decoded
-                    );
+            const result = await recordVertigoTransaction({
+              signature: txData.signature,
+              slot: txData.slot,
+              buyAccounts,
+              type: "buy",
+              checkDuplicate: true,
+            });
+            if (result.duplicate) {
+              console.log(
+                `⚠️ Skipped duplicate buy transaction: ${txData.signature}`
+              );
+            } else {
+              console.log(
+                `✅ Successfully recorded buy transaction in database: ${txData.signature}`
+              );
+            }
+          } else if (decoded.name === "sell") {
+            // Extract accounts with indices first for debugging
+            const accountIndices = extractVertigoAccounts(ix, decoded.name);
+            if (accountIndices) {
+              console.log(
+                `Extracted account indices for ${decoded.name}:`,
+                accountIndices
+              );
+            }
 
-                    if (sellAccounts && sellAccounts.mint_b) {
-                      console.log(
-                        "Successfully extracted sell account info:",
-                        sellAccounts
-                      );
+            // Extract accounts with full public keys
+            const accountsWithKeys = extractVertigoAccountsWithKeys(
+              txData,
+              ix,
+              decoded.name
+            );
+            if (!accountsWithKeys) {
+              console.log("🔎 NO ACCOUNTS WITH KEYS FOUND IN TRANSACTION!");
+              return;
+            }
 
-                      // Log token amounts specifically for sells
-                      const amountB =
-                        sellAccounts.tokenChanges?.mintB?.userInput ||
-                        sellAccounts.params?.amount ||
-                        "0";
-                      const amountA =
-                        sellAccounts.tokenChanges?.mintA?.userReceived || "0";
+            console.log(
+              `Account pubkeys for ${decoded.name}:`,
+              accountsWithKeys
+            );
 
-                      console.log(
-                        `Sell transaction amounts: ${amountB} ${sellAccounts.mint_b} -> ${amountA} ${sellAccounts.mint_a}`
-                      );
+            // If it's a sell instruction, record it
 
-                      // Record the sell transaction
-                      (async () => {
-                        try {
-                          const result = await recordVertigoTransaction({
-                            signature: txData.signature,
-                            slot: txData.slot,
-                            buyAccounts: sellAccounts,
-                            type: "sell",
-                            checkDuplicate: true,
-                          });
-                          if (result.duplicate) {
-                            console.log(
-                              `⚠️ Skipped duplicate sell transaction: ${txData.signature}`
-                            );
-                          } else {
-                            console.log(
-                              `✅ Successfully recorded sell transaction in database: ${txData.signature}`
-                            );
-                          }
-                        } catch (error) {
-                          console.error(
-                            `❌ Failed to record sell transaction in database:`,
-                            error
-                          );
-                        }
-                      })();
-                    } else {
-                      console.warn(
-                        "Failed to extract valid sell account information"
-                      );
-                    }
-                  }
-                }
-              }
+            console.log("Processing sell transaction...");
+
+            // Extract sell accounts using our specialized function
+            const sellAccounts = extractVertigoAccountsFromSell(
+              txData,
+              ix,
+              decoded
+            );
+
+            if (!sellAccounts) {
+              console.log("🔎 NO SELL ACCOUNTS FOUND IN TRANSACTION!");
+              return;
+            }
+
+            console.log(
+              "Successfully extracted sell account info:",
+              sellAccounts
+            );
+
+            // Log token amounts specifically for sells
+            const amountB =
+              sellAccounts.tokenChanges?.mintB?.userInput ||
+              sellAccounts.params?.amount ||
+              "0";
+            const amountA =
+              sellAccounts.tokenChanges?.mintA?.userReceived || "0";
+
+            console.log(
+              `Sell transaction amounts: ${amountB} ${sellAccounts.mint_b} -> ${amountA} ${sellAccounts.mint_a}`
+            );
+
+            const result = await recordVertigoTransaction({
+              signature: txData.signature,
+              slot: txData.slot,
+              buyAccounts: sellAccounts,
+              type: "sell",
+              checkDuplicate: true,
+            });
+            if (result.duplicate) {
+              console.log(
+                `⚠️ Skipped duplicate sell transaction: ${txData.signature}`
+              );
+            } else {
+              console.log(
+                `✅ Successfully recorded sell transaction in database: ${txData.signature}`
+              );
             }
           }
         }
@@ -353,26 +312,6 @@ function startWebSocketServer() {
 async function startMonitoring() {
   try {
     // Display a nice banner
-    const banner = `
-\x1b[35m╔═════════════════════════════════════════════════════════════╗
-║                                                             ║
-║  \x1b[96m████████ ██████   █████  ███    ██ ███████  █████   ██████  \x1b[35m║
-║  \x1b[96m   ██    ██   ██ ██   ██ ████   ██ ██      ██   ██ ██       \x1b[35m║
-║  \x1b[96m   ██    ██████  ███████ ██ ██  ██ ███████ ███████ ██       \x1b[35m║
-║  \x1b[96m   ██    ██   ██ ██   ██ ██  ██ ██      ██ ██   ██ ██       \x1b[35m║
-║  \x1b[96m   ██    ██   ██ ██   ██ ██   ████ ███████ ██   ██  ██████  \x1b[35m║
-║                                                             ║
-║                  \x1b[33mTransactions Monitor v1.1\x1b[35m                  ║
-║                                                             ║
-╚═════════════════════════════════════════════════════════════╝\x1b[0m
-`;
-    console.log(banner);
-
-    log("Starting transaction monitoring...", "event");
-
-    if (mutedPrograms.length > 0) {
-      log(`Muted programs: ${mutedPrograms.join(", ")}`, "info");
-    }
 
     // Start local WebSocket server for clients to connect to
     const server = startWebSocketServer();
