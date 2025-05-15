@@ -76,8 +76,6 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
       `Subscribed directly to Vertigo with ID: ${directVertigoSubscriptionId}`
     );
 
-    logSuccess("All subscriptions set up and listeners attached");
-
     // Set up a periodic check to verify subscription health
     let lastTxTime = Date.now();
     const healthCheckInterval = setInterval(() => {

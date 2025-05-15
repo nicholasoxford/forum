@@ -15,7 +15,10 @@ export const transactionUpdateSchema = createUpdateSchema(transactions);
 export const buyTransactionDataSchema = z.object({
   tokenMintAddress: z.string(),
   poolAddress: z.string(),
-  mintA: z.string().optional().default("11111111111111111111111111111111"), // Default to SOL
+  mintA: z
+    .string()
+    .optional()
+    .default("So11111111111111111111111111111111111111112"), // Default to SOL
   mintB: z.string().optional(),
   amount: z.string().or(z.number()).optional(),
   estimatedAmount: z.string().or(z.number()).optional(),
@@ -24,7 +27,10 @@ export const buyTransactionDataSchema = z.object({
 export const sellTransactionDataSchema = z.object({
   tokenMintAddress: z.string(),
   poolAddress: z.string(),
-  mintA: z.string().optional().default("11111111111111111111111111111111"), // Default to SOL
+  mintA: z
+    .string()
+    .optional()
+    .default("So11111111111111111111111111111111111111112"), // Default to SOL
   mintB: z.string().optional(),
   amount: z.string().or(z.number()).optional(),
   estimatedAmount: z.string().or(z.number()).optional(),
@@ -33,7 +39,10 @@ export const sellTransactionDataSchema = z.object({
 export const createPoolTransactionDataSchema = z.object({
   tokenMintAddress: z.string(),
   poolAddress: z.string(),
-  mintA: z.string().optional().default("11111111111111111111111111111111"), // Default to SOL
+  mintA: z
+    .string()
+    .optional()
+    .default("So11111111111111111111111111111111111111112"), // Default to SOL
   mintB: z.string().optional(),
   initialLiquidity: z.string().or(z.number()).optional(),
 });
@@ -41,7 +50,10 @@ export const createPoolTransactionDataSchema = z.object({
 export const claimTransactionDataSchema = z.object({
   tokenMintAddress: z.string(),
   poolAddress: z.string(),
-  mintA: z.string().optional().default("11111111111111111111111111111111"), // Default to SOL
+  mintA: z
+    .string()
+    .optional()
+    .default("So11111111111111111111111111111111111111112"), // Default to SOL
   estimatedAmount: z.string().or(z.number()).optional(),
 });
 

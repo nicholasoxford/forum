@@ -15,7 +15,7 @@ export const transactionUpdateSchema = createUpdateSchema(transactions);
 const mintAddressType = t.String();
 const poolAddressType = t.String();
 const amountType = t.Union([t.String(), t.Number()]);
-const solMintAddress = "11111111111111111111111111111111";
+const solMintAddress = "So11111111111111111111111111111111111111112";
 
 // Type-specific transaction data schemas
 export const buyTransactionDataSchema = t.Object(

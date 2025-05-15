@@ -60,7 +60,7 @@ export function useBuyToken() {
         const transactionData = {
           tokenMintAddress: tokenMint,
           poolAddress: poolAddress,
-          mintA: "11111111111111111111111111111111", // Default to SOL
+          mintA: "So11111111111111111111111111111111111111112", // Default to SOL
           mintB: tokenMint,
           amount: amount,
           // We'll leave out the estimated amount for now until we have it from the pool info

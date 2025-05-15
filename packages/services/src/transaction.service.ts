@@ -43,7 +43,7 @@ const transactionHandlers: Record<
     await transactions.updateTransactionStatus(txId, "pending", {
       tokenMintAddress: data.tokenMintAddress,
       poolAddress: data.poolAddress,
-      mintA: data.mintA || "11111111111111111111111111111111",
+      mintA: data.mintA || "So11111111111111111111111111111111111111112",
       mintB: data.mintB || data.tokenMintAddress,
       amountA: data.amount?.toString(),
       amountB: data.estimatedAmount?.toString() || data.amount?.toString(),
@@ -66,7 +66,7 @@ const transactionHandlers: Record<
     await transactions.updateTransactionStatus(txId, "pending", {
       tokenMintAddress: data.tokenMintAddress,
       poolAddress: data.poolAddress,
-      mintA: data.mintA || "11111111111111111111111111111111",
+      mintA: data.mintA || "So11111111111111111111111111111111111111112",
       mintB: data.mintB || data.tokenMintAddress,
       amountA: data.estimatedAmount?.toString() || data.amount?.toString(),
       amountB: data.amount?.toString(),
@@ -89,7 +89,7 @@ const transactionHandlers: Record<
     await transactions.updateTransactionStatus(txId, "pending", {
       tokenMintAddress: data.tokenMintAddress,
       poolAddress: data.poolAddress,
-      mintA: data.mintA || "11111111111111111111111111111111",
+      mintA: data.mintA || "So11111111111111111111111111111111111111112",
       mintB: data.mintB || data.tokenMintAddress,
       amountB: data.initialLiquidity?.toString(),
     });
@@ -111,7 +111,7 @@ const transactionHandlers: Record<
     await transactions.updateTransactionStatus(txId, "pending", {
       tokenMintAddress: data.tokenMintAddress,
       poolAddress: data.poolAddress,
-      mintA: data.mintA || "11111111111111111111111111111111",
+      mintA: data.mintA || "So11111111111111111111111111111111111111112",
       amountA: data.estimatedAmount?.toString(),
     });
   },

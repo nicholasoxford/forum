@@ -448,7 +448,7 @@ export const extractSolTransfers = (txData: any) => {
     const checkInstructions = (instructions: any[]) => {
       instructions.forEach((ix: any) => {
         if (
-          ix.programId === "11111111111111111111111111111111" &&
+          ix.programId === "So11111111111111111111111111111111111111112" &&
           ix.parsed?.type === "transfer"
         ) {
           transfers.push({

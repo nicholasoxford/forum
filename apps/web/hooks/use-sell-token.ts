@@ -54,7 +54,7 @@ export function useSellToken() {
         const transactionData = {
           tokenMintAddress: tokenMint,
           poolAddress: poolInfo.poolAddress,
-          mintA: "11111111111111111111111111111111", // Default to SOL
+          mintA: "So11111111111111111111111111111111111111112", // Default to SOL
           mintB: tokenMint,
           amount: amount,
         };
