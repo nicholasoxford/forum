@@ -252,6 +252,24 @@ async function connectLaserStream(client: LaserStreamClient, server: Server) {
         }
       }
     });
+
+    // Add pong tracking
+    let lastPongTime = Date.now();
+    client.on("pong", () => {
+      lastPongTime = Date.now();
+      console.log("Pong received");
+    });
+
+    // Add a health check that verifies pongs are being received
+    let healthCheck = setInterval(() => {
+      const now = Date.now();
+      if (now - lastPongTime > 120000) {
+        // No pong for 2 minutes
+        console.warn("No pong received in 2 minutes, reconnecting...");
+        client.disconnect();
+        client.connect();
+      }
+    }, 60000);
   } catch (error) {
     logError(`Failed to connect or subscribe: ${error}`);
 
